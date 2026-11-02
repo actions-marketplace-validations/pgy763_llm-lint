@@ -165,6 +165,8 @@ public Flux<String> stream(String q) {
 为什么：不带 charset 时 Spring 按默认编码把 `String` 写出去，中文在浏览器里是问号。接口
 返回 200，抓包看字节也对，只有前端那一行是坏的。
 
+这条有现成补丁：`llm-lint --fix src` 会输出把 charset 补上的 unified diff，`git apply` 即可。
+
 ---
 
 <a id="llm007"></a>
@@ -424,6 +426,9 @@ public Flux<String> stream() {
 为什么：返回 `Flux` 却没写 `produces`，Spring 会按 Jackson 的 JSON 转换器走：先把整个流收完，
 再一次性写出去；中间的代理也更容易把响应攒着。客户端看到的还是「等很久，然后全出来」——
 流式白开了，还多占了一路连接。
+
+这条有现成补丁：`llm-lint --fix src` 会输出加上 `produces` 的 unified diff（字符串字面量，
+不用补 import），`git apply` 即可。
 
 ---
 

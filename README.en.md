@@ -252,7 +252,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
+         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>] [--fix]
          [--explain LLM001] [--list-rules] <path...>
 
   --format        text (default, for humans) / json / github (Actions annotations) / sarif
@@ -273,6 +273,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --markdown      write one row per finding to a file (the Action posts it as a sticky PR comment)
   --jobs          how many files to scan at once: default CPU count (max 8), 1 = sequential
   --since         only scan files changed since this git ref, e.g. origin/main or HEAD~1
+  --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches)
   --explain       level, framework, rationale and suppression for one rule
 ```
 
@@ -314,6 +315,22 @@ SseEmitter emitter = new SseEmitter();
 - `// llm-lint:ignore` — suppress every finding on that line
 - `// llm-lint:ignore LLM004,LLM009` — suppress only those
 - `// llm-lint:ignore-file` — suppress the whole file
+
+### Let it write the patch
+
+Some fixes only have one sensible shape — no need to copy it by hand:
+
+```bash
+java -jar llm-lint.jar --fix src > fix.patch
+git apply fix.patch
+```
+
+It prints a unified diff instead of a report and **never touches your working tree** — you apply it,
+review it, then commit. Only LLM006 (SSE without charset) and LLM018 (streaming endpoint without
+`produces`) have patches today; anything else says so instead of pretending.
+
+Exit codes still follow the findings: with errors, `--fix` exits `1`, so use `--fail-on never` or
+`|| true` in scripts when you only want the patch.
 
 ## About false positives
 
@@ -383,7 +400,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.9.0 && git push origin v0.9.0
+git tag v0.9.1 && git push origin v0.9.1
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

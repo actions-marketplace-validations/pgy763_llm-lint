@@ -88,6 +88,23 @@ jobs:
           test "$(grep -c '^| LLM' target/summary.md)" -eq 18
           echo "summary ok"
 
+      - name: 自检 —— --fix 的补丁能真的 apply 上
+        run: |
+          work="$(mktemp -d)"
+          mkdir -p "$work/src"
+          cp samples/bad/*.java "$work/src/"
+          (cd "$work" && git init -q)
+          jar="$(pwd)/target/llm-lint.jar"
+          (cd "$work" && java -jar "$jar" --fix --fail-on never src > fix.patch)
+          test -s "$work/fix.patch"
+          # 补丁里的路径得是相对的，git apply 才认
+          head -1 "$work/fix.patch" | grep -q '^--- a/src/'
+          (cd "$work" && git apply fix.patch)
+          (cd "$work" && java -jar "$jar" --format json src > after.json) || true
+          ! grep -q 'LLM006' "$work/after.json"
+          ! grep -q 'LLM018' "$work/after.json"
+          echo "fix ok"
+
       - name: 自检 —— 仓库里的配置能替代手写参数
         run: |
           cd samples/config-demo

@@ -3,10 +3,11 @@
 > llm-lint is a static analyzer for Java code built on Spring AI or LangChain4j. It reports eighteen
 > failure modes that only show up in production — model calls inside transactions, shared chat
 > memory, SSE streams that die after 30 seconds, hard-coded API keys — without running tests, calling
-> a model, or needing your classpath. Ships as a CLI and a GitHub Action, with SARIF, JSON, baseline support
-> for existing codebases, and --since to scan only files changed in a pull request.
+> a model, or needing your classpath. Ships as a CLI and a GitHub Action, with SARIF, JSON,
+> baseline support for existing codebases, --since to scan only files changed in a pull request,
+> and --fix to print a patch for the two mechanically fixable rules (LLM006, LLM018).
 
-- [Fifteen rules](docs/rules.md): what each rule catches, with counter-examples and fixes
+- [Eighteen rules](docs/rules.md): what each rule catches, with counter-examples and fixes
 - [Per-project configuration](docs/config.md): `.llm-lint.yml` schema, discovery, precedence
 - [Baseline](docs/baseline.md): accept existing findings so CI only blocks new ones
 - [English README](README.en.md)

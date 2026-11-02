@@ -20,6 +20,11 @@ public abstract class AbstractRule implements Rule {
     }
 
     protected Finding at(Path file, Node node, String message) {
+        return at(file, node, message, null);
+    }
+
+    /** 带补丁的结果：告诉调用者这段源码可以安全地换成 {@code fix} 里的写法。 */
+    protected Finding at(Path file, Node node, String message, Fix fix) {
         int line = node.getBegin().map(p -> p.line).orElse(0);
         int column = node.getBegin().map(p -> p.column).orElse(0);
         return new Finding(
@@ -30,7 +35,15 @@ public abstract class AbstractRule implements Rule {
                 column,
                 title(),
                 message,
-                docUrl());
+                docUrl(),
+                fix);
+    }
+
+    /** 把 AST 节点的源码范围包成 Fix；节点位置认不出来时返回 null（宁可不给补丁）。 */
+    protected static Fix fix(Node node, String replacement) {
+        return node.getRange()
+                .map(r -> new Fix(r.begin.line, r.begin.column, r.end.line, r.end.column, replacement))
+                .orElse(null);
     }
 
     protected static List<Finding> none() {

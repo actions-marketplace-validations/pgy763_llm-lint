@@ -67,7 +67,8 @@ public final class Rule018StreamingWithoutProduces extends AbstractRule {
                             + mapping.getNameAsString() + "` 没写 `produces`。"
                             + "Spring 会按 JSON 的转换器走：先把整个流收完，再一次性写出去，"
                             + "中间件也更容易把响应攒着——客户端看到的还是「等很久，然后全出来」。"
-                            + "写成 `produces = MediaType.TEXT_EVENT_STREAM_VALUE`。"));
+                            + "写成 `produces = MediaType.TEXT_EVENT_STREAM_VALUE`。",
+                    fix(mapping, withProduces(mapping))));
         }
         return out;
     }
@@ -82,5 +83,35 @@ public final class Rule018StreamingWithoutProduces extends AbstractRule {
             }
         }
         return false;
+    }
+
+    /**
+     * 把注解改写成带 produces 的样子。
+     *
+     * <p>用字符串字面量而不是 {@code MediaType.TEXT_EVENT_STREAM_VALUE}：不用额外加 import，
+     * 补丁贴上去就能编译。charset 一起写上，免得改完又踩 LLM006。
+     */
+    private static String withProduces(AnnotationExpr annotation) {
+        String name = "@" + annotation.getNameAsString();
+        String produces = "produces = \"text/event-stream;charset=UTF-8\"";
+        if (annotation.isMarkerAnnotationExpr()) {
+            return name + "(" + produces + ")";
+        }
+        if (annotation.isSingleMemberAnnotationExpr()) {
+            String value = annotation.asSingleMemberAnnotationExpr().getMemberValue().toString();
+            return name + "(value = " + value + ", " + produces + ")";
+        }
+        List<MemberValuePair> pairs = annotation.asNormalAnnotationExpr().getPairs();
+        StringBuilder sb = new StringBuilder(name).append("(");
+        for (int i = 0; i < pairs.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(pairs.get(i));
+        }
+        if (!pairs.isEmpty()) {
+            sb.append(", ");
+        }
+        return sb.append(produces).append(")").toString();
     }
 }

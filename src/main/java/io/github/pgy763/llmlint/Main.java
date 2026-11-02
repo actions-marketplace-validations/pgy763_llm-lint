@@ -6,6 +6,7 @@ import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
 import io.github.pgy763.llmlint.engine.Baseline;
 import io.github.pgy763.llmlint.engine.ChangedFiles;
+import io.github.pgy763.llmlint.engine.Fixer;
 import io.github.pgy763.llmlint.engine.LintEngine;
 import io.github.pgy763.llmlint.engine.LintResult;
 import io.github.pgy763.llmlint.engine.SourceCache;
@@ -119,6 +120,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--markdown", paramLabel = "<file>",
             description = "把「一条问题一行」的 Markdown 明细写进文件（给 PR 评论用，Action 会原地更新）")
     private Path markdown;
+
+    @Option(names = "--fix",
+            description = "不打印报告，改为输出一份 unified diff（目前 LLM006 / LLM018 有补丁）")
+    private boolean fix;
 
     @Option(names = "--no-context", description = "text 格式下不打印源码行")
     private boolean noContext;
@@ -279,22 +284,40 @@ public final class Main implements Callable<Integer> {
         }
         findings = List.copyOf(fresh);
 
-        String output = switch (format.toLowerCase(Locale.ROOT)) {
-            case "json" -> JsonReport.format(findings);
-            case "github" -> GitHubReport.format(findings);
-            case "sarif" -> SarifReport.format(findings, rules);
-            case "text", "default" -> TextReport.format(findings, new SourceCache(), !noContext);
-            default -> null;
-        };
-        if (output == null) {
-            err.println("不认识的 --format：" + format + "（text / json / github / sarif）");
-            return 2;
+        if (fix) {
+            String patch;
+            try {
+                patch = Fixer.patch(findings);
+            } catch (IOException | IllegalArgumentException e) {
+                err.println("llm-lint: " + e.getMessage());
+                return 2;
+            }
+            if (patch.isEmpty()) {
+                if (!findings.isEmpty()) {
+                    err.println("llm-lint: 这些问题没有现成的补丁（目前只有 LLM006 和 LLM018 能自动修）");
+                }
+            } else {
+                out.print(patch);
+                out.flush();
+            }
+        } else {
+            String output = switch (format.toLowerCase(Locale.ROOT)) {
+                case "json" -> JsonReport.format(findings);
+                case "github" -> GitHubReport.format(findings);
+                case "sarif" -> SarifReport.format(findings, rules);
+                case "text", "default" -> TextReport.format(findings, new SourceCache(), !noContext);
+                default -> null;
+            };
+            if (output == null) {
+                err.println("不认识的 --format：" + format + "（text / json / github / sarif）");
+                return 2;
+            }
+            out.print(output);
+            if (!output.isEmpty() && !output.endsWith("\n")) {
+                out.println();
+            }
+            out.flush();
         }
-        out.print(output);
-        if (!output.isEmpty() && !output.endsWith("\n")) {
-            out.println();
-        }
-        out.flush();
 
         if (summary != null) {
             try {

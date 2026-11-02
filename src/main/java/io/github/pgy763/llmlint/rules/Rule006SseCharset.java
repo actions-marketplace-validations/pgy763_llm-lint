@@ -55,8 +55,14 @@ public final class Rule006SseCharset extends AbstractRule {
                     "`" + pair.getNameAsString() + "` 声明了 `text/event-stream`，但没带 `charset`。"
                             + "Spring 的 String 转换器默认 ISO-8859-1，中文会变成问号或乱码——"
                             + "而且前端看起来「接口通了」，只是字不对。"
-                            + "写成 `MediaType.TEXT_EVENT_STREAM_VALUE + \";charset=UTF-8\"`。"));
+                            + "写成 `MediaType.TEXT_EVENT_STREAM_VALUE + \";charset=UTF-8\"`。",
+                    fix(literal, "\"" + escape(value) + ";charset=UTF-8\"")));
         }
         return out;
+    }
+
+    /** 把字符串里的反斜杠和引号转回去，补丁贴进源码才是合法的 Java 字面量。 */
+    private static String escape(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 }

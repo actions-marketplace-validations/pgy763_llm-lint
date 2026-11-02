@@ -236,7 +236,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
+         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>] [--fix]
          [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
@@ -257,6 +257,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --markdown      把一条问题一行的明细写进文件（给 PR 评论用，Action 会原地更新）
   --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
   --since         只扫这个 git 引用以来改动的文件，如 origin/main、HEAD~1
+  --fix           不打印报告，改为输出 unified diff（目前 LLM006 / LLM018 有补丁）
   --explain       一条规则的级别、框架、理由、抑制方式
 ```
 
@@ -297,6 +298,23 @@ SseEmitter emitter = new SseEmitter();
 - `// llm-lint:ignore` —— 压掉该行全部问题
 - `// llm-lint:ignore LLM004,LLM009` —— 只压这几条
 - `// llm-lint:ignore-file` —— 整个文件不报
+
+### 让工具直接给补丁
+
+有些问题改法只有一种，没必要让人手动抄：
+
+```bash
+java -jar llm-lint.jar --fix src > fix.patch
+git apply fix.patch
+```
+
+它不打印报告，只输出一份 unified diff；不看就改、或者确认后手动 apply，都行。
+**它不会动你的工作区**——补丁要你自己 apply，review 之后再提交。
+目前只有 LLM006（SSE 缺 charset）和 LLM018（流式接口没写 produces）有现成补丁，
+别的问题会明说「没有现成的补丁」，不会假装改了。
+
+注意退出码还是按问题算：有 error 时 `--fix` 退出 `1`，脚本里用
+`--fail-on never` 或 `|| true` 才不会被它中断。
 
 ## 误报这件事
 
@@ -349,7 +367,7 @@ java -jar target/llm-lint.jar --list-rules
 - `samples/suppressed/` —— 验证 `// llm-lint:ignore` 只压掉指定的那一条
 - `samples/config-demo/` —— 三个反例 + 一份 `.llm-lint.yml`，配好之后必须**只剩一条** error
 - `BaselineTest` / `BaselineCliTest` —— 基线：旧问题存进去后退出 0，新犯的照样退出 1
-- `ExcludeTest` / `SummaryCliTest` / `MarkdownReportTest` / `MarkdownCliTest` / `InitCiTest` / `ChangedFilesTest` / `SinceCliTest` —— 相对路径排除、摘要/评论文件、`--init-ci`、`--since` 的改动文件计算
+- `ExcludeTest` / `SummaryCliTest` / `MarkdownReportTest` / `MarkdownCliTest` / `InitCiTest` / `ChangedFilesTest` / `SinceCliTest` / `FixerTest` / `FixCliTest` —— 相对路径排除、摘要/评论文件、`--init-ci`、`--since` 的改动文件计算
 
 改规则先改前三个目录。CI 还会用自己发布的 action 扫一遍 `samples/good`（必须通过）、
 `samples/bad`（必须失败）和 `samples/config-demo`（带着仓库配置也必须失败），确保「别人拿到
@@ -360,7 +378,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.9.0 && git push origin v0.9.0
+git tag v0.9.1 && git push origin v0.9.1
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
