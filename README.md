@@ -46,6 +46,53 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 `ChatLanguageModel` / `StreamingChatLanguageModel` / `AiServices` / `ChatMemoryProvider`，
 按类型名后缀判断，同一份代码里混着用也照扫。
 
+## 把规则固定在仓库里
+
+`--disable`、`--exclude`、`--fail-on` 写进 CI 命令行，决定就只活在流水线里：本地跑的人看不到，
+新同事不知道某条警告早就决定不管，删掉那行参数也没有任何记录说明为什么曾经加过。
+
+把这些决定写成仓库根目录的一个 `.llm-lint.yml`，本地和 CI 读同一份：
+
+```yaml
+version: 1
+
+rules:
+  LLM004: off        # 流式超时统一在网关配，这里不重复报
+  LLM007: error      # 团队要求 maxTokens >= 512，默认的 warning 不够狠
+
+exclude:
+  - "**/generated/**"   # 代码生成器的产物，改了也会被覆盖
+
+fail-on: error
+```
+
+然后什么都不用加：
+
+```bash
+java -jar llm-lint.jar src/main/java
+```
+
+- **怎么找**：从当前目录一路往上，到仓库根（含 `.git` 那一级）为止；没有再从这个被扫的路径
+  往上找。`--config other.yml` 指定别的文件，`--no-config` 完全不读。
+- **只写差异**：没写的规则跟着工具自己的默认级别走，升级时默认值的改进能自动吃到，不会被配置里
+  抄下来的旧值钉死。
+- **优先级**：命令行 > 配置文件 > 默认值。CI 里临时想放宽，`--fail-on never` 仍然说了算；
+  `--exclude` 和配置里的 `exclude` 取**并集**。
+- **写错了就说清楚**：未知的键、未知的规则、未知的级别都退出码 `2`，带 `文件:行号`，
+  拼错的编号还会猜一下（`LLM07` → `是不是 LLM007？`）。不猜、不跳过——静默忽略一个拼错的
+  规则名，比直接失败难查得多。
+
+没有现成的就生成一份带注释的模板：
+
+```bash
+java -jar llm-lint.jar --init          # 写 .llm-lint.yml，已存在则不覆盖
+java -jar llm-lint.jar --print-config  # 打印实际生效的配置（含默认值），可存回去
+```
+
+`--print-config` 是排查「CI 和本地为什么不一样」的第一步：它把默认值也摊开，两边比一下就知道
+差在哪。完整字段、YAML 子集限制和设计取舍见 **[docs/config.md](docs/config.md)**，
+`samples/config-demo/` 是一个能跑的样例（三条反例，配置后只剩一条 error）。
+
 ## 接进 CI
 
 最省事的是一个 composite action（它自己装 JDK、下 jar）：
@@ -55,8 +102,9 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 - uses: pgy763/llm-lint@v1
   with:
     path: src/main/java     # 默认就是它
-    fail-on: error          # error（默认）| warning | never
-    # disable: LLM009       # 某条规则在你项目里是误报就关掉
+    # config: .llm-lint.yml # 默认从当前目录往上找，一般不用填
+    fail-on: error          # error（默认）| warning | never；不填就用配置文件里的
+    # disable: LLM009       # 临时的；长期的开关写进 .llm-lint.yml
 ```
 
 问题会直接标在 diff 的对应行上（GitHub Actions 注解格式），不用翻日志。
@@ -111,6 +159,7 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--min-severity info|warning|error] [--disable LLM004,LLM009]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
+         [--config .llm-lint.yml | --no-config] [--init] [--print-config]
          [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
@@ -119,6 +168,10 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --disable       不跑的规则；某条规则在你项目里是误报就关掉它
   --exclude       不扫的路径（glob），逗号分隔
   --no-context    text 格式下不打印源码行
+  --config        用指定的配置文件（默认自动找仓库里的 .llm-lint.yml）
+  --no-config     不读配置文件
+  --init          在当前目录写一份带注释的 .llm-lint.yml
+  --print-config  打印实际生效的配置（含默认值），可以存回当配置文件
   --explain       一条规则的级别、框架、理由、抑制方式
 ```
 
@@ -143,7 +196,8 @@ SseEmitter emitter = new SseEmitter();
 - 空 `catch` 只在它确实包着 `write`/`send`/`flush` 时报，纯业务逻辑的空 catch 不管。
 - `@Bean` 方法里建客户端不报——那正是推荐写法。
 - 自己 `build()` 出来的 `ChatClient` 字段不报 LLM003，只有「让容器注入」才报。
-- LLM009 认不出你在别处统一配的超时——如果配了，`--disable LLM009`。
+- LLM009 认不出你在别处统一配的超时——如果配了，在 `.llm-lint.yml` 里写 `LLM009: off`，
+  下面那套「按项目配置」就是为这种情况准备的，不用每次在 CI 里手写 `--disable`。
 - 一开始还写过一条「`new SseEmitter(0L)` 没配 `onTimeout`」的规则，被自己的正例打回来了：
   把超时关掉、靠心跳维持连接是常规做法。**删掉**，而不是加条件硬凑。
 
@@ -183,9 +237,11 @@ java -jar target/llm-lint.jar --list-rules
 - `samples/bad/LLM0NN_*.java` —— 每个文件必须**正好**报一条，且编号等于文件名前缀
 - `samples/good/LLM0NN_*.java` —— 同一处的正确写法，必须**一条都不报**
 - `samples/suppressed/` —— 验证 `// llm-lint:ignore` 只压掉指定的那一条
+- `samples/config-demo/` —— 三个反例 + 一份 `.llm-lint.yml`，配好之后必须**只剩一条** error
 
-改规则先改这三个目录。CI 还会用自己发布的 action 扫一遍 `samples/good`（必须通过）和
-`samples/bad`（必须失败），确保「别人拿到 jar 真的能用」。
+改规则先改前三个目录。CI 还会用自己发布的 action 扫一遍 `samples/good`（必须通过）、
+`samples/bad`（必须失败）和 `samples/config-demo`（带着仓库配置也必须失败），确保「别人拿到
+jar 真的能用」。
 
 ## 相关
 

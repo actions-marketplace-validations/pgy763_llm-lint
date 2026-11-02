@@ -10,16 +10,20 @@ inputs:
     description: '要扫的目录或 .java 文件'
     required: false
     default: 'src/main/java'
+  config:
+    description: '仓库里的配置文件；默认从当前目录往上找 .llm-lint.yml'
+    required: false
+    default: ''
   fail-on:
-    description: '什么级别算失败：error | warning | never'
+    description: '什么级别算失败：error | warning | never；留空就用配置文件或默认的 error'
     required: false
-    default: 'error'
+    default: ''
   disable:
-    description: '不跑的规则，逗号分隔，如 LLM004,LLM009'
+    description: '不跑的规则，逗号分隔，如 LLM004,LLM009；长期关掉建议写进 .llm-lint.yml'
   min-severity:
-    description: '低于这个级别不报：info | warning | error'
+    description: '低于这个级别不报：info | warning | error；留空就用配置文件或默认的 info'
     required: false
-    default: 'info'
+    default: ''
   version:
     description: 'llm-lint 版本；默认 latest'
     required: false
@@ -54,16 +58,25 @@ runs:
       shell: bash
       env:
         LLM_LINT_PATH: ${{ inputs.path }}
+        LLM_LINT_CONFIG: ${{ inputs.config }}
         LLM_LINT_FAIL_ON: ${{ inputs.fail-on }}
         LLM_LINT_DISABLE: ${{ inputs.disable }}
         LLM_LINT_MIN_SEVERITY: ${{ inputs.min-severity }}
         LLM_LINT_JAR: ${{ inputs.jar || format('{0}/llm-lint.jar', runner.temp) }}
       run: |
-        args=(--format github --fail-on "$LLM_LINT_FAIL_ON" "$LLM_LINT_PATH")
+        # 没填的项不传，配置文件和工具默认值才有机会说话（命令行永远最优先）。
+        args=(--format github)
+        if [ -n "$LLM_LINT_CONFIG" ]; then
+          args+=(--config "$LLM_LINT_CONFIG")
+        fi
+        if [ -n "$LLM_LINT_FAIL_ON" ]; then
+          args+=(--fail-on "$LLM_LINT_FAIL_ON")
+        fi
         if [ -n "$LLM_LINT_MIN_SEVERITY" ]; then
           args+=(--min-severity "$LLM_LINT_MIN_SEVERITY")
         fi
         if [ -n "$LLM_LINT_DISABLE" ]; then
           args+=(--disable "$LLM_LINT_DISABLE")
         fi
+        args+=("$LLM_LINT_PATH")
         java -jar "$LLM_LINT_JAR" "${args[@]}"

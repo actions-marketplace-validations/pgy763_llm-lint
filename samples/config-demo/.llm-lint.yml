@@ -1,0 +1,16 @@
+# 这个示例项目演示「按项目配置」：开关、级别、排除路径都写在仓库里，
+# CI 只跑 `llm-lint .`，不用每次手写 --disable / --exclude。
+version: 1
+
+rules:
+  # 流式接口的超时统一在网关配，这里 new SseEmitter() 不写超时是有意的。
+  LLM004: off
+
+  # 团队约定：工具场景至少留 512 个 token。默认的 warning 太软，提到 error 才会拦合并。
+  LLM007: error
+
+exclude:
+  # 代码生成器产出的常量，key 由部署时注入，不是人写进仓库的。
+  - "**/generated/**"
+
+fail-on: error

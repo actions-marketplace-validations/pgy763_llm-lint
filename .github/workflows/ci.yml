@@ -59,6 +59,38 @@ jobs:
           print("json ok")
           PY
 
+      - name: 自检 —— 仓库里的配置能替代手写参数
+        run: |
+          cd samples/config-demo
+          set +e
+          java -jar ../../target/llm-lint.jar --format json . > demo.json
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "config-demo 应该让退出码是 1，实际是 $code"
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          data = json.load(open("demo.json", encoding="utf-8"))
+          assert len(data) == 1, f"配置该把三条收成一条，实际 {data}"
+          assert data[0]["ruleId"] == "LLM007", data
+          assert data[0]["severity"] == "ERROR", "配置该把 LLM007 从 warning 提到 error"
+          assert "SupportAssistant.java" in data[0]["file"], data
+          print("config demo ok")
+          PY
+
+      - name: 自检 —— --init 写出来的模板自己读得回去
+        run: |
+          work=$(mktemp -d)
+          cd "$work"
+          java -jar "$GITHUB_WORKSPACE/target/llm-lint.jar" --init
+          java -jar "$GITHUB_WORKSPACE/target/llm-lint.jar" --print-config | grep -q '^fail-on: error$'
+          if java -jar "$GITHUB_WORKSPACE/target/llm-lint.jar" --init; then
+            echo "--init 不该覆盖已经存在的配置"
+            exit 1
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: llm-lint-jar
@@ -93,8 +125,20 @@ jobs:
           path: samples/bad
           jar: target/llm-lint.jar
 
-      - name: 确认上一步真的失败了
-        if: steps.bad.outcome != 'failure'
+      - name: 带仓库配置的反例也必须被拦住
+        id: configured
+        uses: ./
+        continue-on-error: true
+        with:
+          path: samples/config-demo
+          config: samples/config-demo/.llm-lint.yml
+          jar: target/llm-lint.jar
+
+      - name: 确认反例真的失败了
+        if: steps.bad.outcome != 'failure' || steps.configured.outcome != 'failure'
+        env:
+          BAD: ${{ steps.bad.outcome }}
+          CONFIGURED: ${{ steps.configured.outcome }}
         run: |
-          echo "action 没有拦住 samples/bad（outcome=${{ steps.bad.outcome }}）"
+          echo "action 没有拦住反例：samples/bad=$BAD，config-demo=$CONFIGURED"
           exit 1
