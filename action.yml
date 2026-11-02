@@ -1,0 +1,57 @@
+name: 'llm-lint'
+description: '扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那十个最贵的坑'
+author: 'pgy763'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  path:
+    description: '要扫的目录或 .java 文件'
+    required: false
+    default: 'src/main/java'
+  fail-on:
+    description: '什么级别算失败：error | warning | never'
+    required: false
+    default: 'error'
+  disable:
+    description: '不跑的规则，逗号分隔，如 LLM004,LLM009'
+    required: false
+    default: ''
+  version:
+    description: 'llm-lint 版本'
+    required: false
+    default: 'latest'
+
+runs:
+  using: 'composite'
+  steps:
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: '17'
+
+    - name: 下载 llm-lint
+      shell: bash
+      env:
+        LLM_LINT_VERSION: ${{ inputs.version }}
+      run: |
+        if [ "$LLM_LINT_VERSION" = "latest" ]; then
+          url="https://github.com/pgy763/llm-lint/releases/latest/download/llm-lint.jar"
+        else
+          url="https://github.com/pgy763/llm-lint/releases/download/v${LLM_LINT_VERSION}/llm-lint.jar"
+        fi
+        curl -sSL -o "$RUNNER_TEMP/llm-lint.jar" "$url"
+
+    - name: 扫描
+      shell: bash
+      env:
+        LLM_LINT_PATH: ${{ inputs.path }}
+        LLM_LINT_FAIL_ON: ${{ inputs.fail-on }}
+        LLM_LINT_DISABLE: ${{ inputs.disable }}
+      run: |
+        args=(--format github --fail-on "$LLM_LINT_FAIL_ON" "$LLM_LINT_PATH")
+        if [ -n "$LLM_LINT_DISABLE" ]; then
+          args+=(--disable "$LLM_LINT_DISABLE")
+        fi
+        java -jar "$RUNNER_TEMP/llm-lint.jar" "${args[@]}"

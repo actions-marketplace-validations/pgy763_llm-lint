@@ -32,8 +32,22 @@ src/main/java/com/demo/OrderService.java
 
 ## 接进 CI
 
+最省事的是一个 composite action（它自己会装 JDK、下 jar）：
+
 ```yaml
 - uses: actions/checkout@v4
+- uses: pgy763/llm-lint@v1
+  with:
+    path: src/main/java     # 默认就是它
+    fail-on: error          # error（默认）| warning | never
+    # disable: LLM009       # 某条规则在你项目里是误报就关掉
+```
+
+问题会直接标在 diff 的对应行上（用的是 GitHub Actions 注解格式）。
+
+不想用 action 的话，直接下 jar：
+
+```yaml
 - uses: actions/setup-java@v4
   with:
     distribution: temurin
@@ -42,8 +56,6 @@ src/main/java/com/demo/OrderService.java
     curl -sL -o llm-lint.jar https://github.com/pgy763/llm-lint/releases/latest/download/llm-lint.jar
     java -jar llm-lint.jar --format github src/main/java
 ```
-
-`--format github` 输出 GitHub Actions 的注解格式，问题会直接标在 diff 的对应行上。
 
 ## 十条规则
 
