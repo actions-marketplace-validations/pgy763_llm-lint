@@ -179,9 +179,15 @@ public final class LintEngine {
         return files;
     }
 
-    /** `**&#47;generated&#47;**` 这样的通配；不含 * 的当子串排除。 */
+    /**
+     * `**&#47;generated&#47;**` 这样的通配；不含 * 的当子串排除。
+     *
+     * <p>通配会拿完整路径和它的每一段后缀去试，所以 `src/generated/**` 这种「相对仓库根」
+     * 的写法，不管是在仓库根扫还是 cd 进子目录扫，都能对上。
+     */
     public boolean excluded(Path path) {
         String p = path.toString().replace('\\', '/');
+        List<String> candidates = candidates(p, path.getFileName());
         for (String raw : excludePatterns) {
             String pattern = raw.trim();
             if (pattern.isEmpty()) {
@@ -189,18 +195,31 @@ public final class LintEngine {
             }
             if (pattern.contains("*") || pattern.contains("?")) {
                 PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
-                if (matcher.matches(path) || matcher.matches(Path.of(p))) {
+                if (matcher.matches(path)) {
                     return true;
                 }
-                // 只写文件名（如 `*Test.java`、`LLM012_*`）也算
-                Path fileName = path.getFileName();
-                if (fileName != null && matcher.matches(fileName)) {
-                    return true;
+                for (String candidate : candidates) {
+                    if (matcher.matches(Path.of(candidate))) {
+                        return true;
+                    }
                 }
             } else if (p.toLowerCase(Locale.ROOT).contains(pattern.toLowerCase(Locale.ROOT))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /** 完整路径、文件名，以及每一段 / 之后的后缀（`src/generated/A.java` → `generated/A.java` …）。 */
+    private static List<String> candidates(String normalized, Path fileName) {
+        List<String> out = new ArrayList<>();
+        out.add(normalized);
+        if (fileName != null) {
+            out.add(fileName.toString());
+        }
+        for (int i = normalized.indexOf('/'); i >= 0; i = normalized.indexOf('/', i + 1)) {
+            out.add(normalized.substring(i + 1));
+        }
+        return out;
     }
 }

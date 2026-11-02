@@ -66,6 +66,14 @@ jobs:
           cmp serial.json parallel.json
           echo "parallel ok"
 
+      - name: 自检 —— 摘要文件能给 job 页面用
+        run: |
+          java -jar target/llm-lint.jar --summary target/summary.md --format json samples/bad > /dev/null || true
+          grep -q '15 个问题' target/summary.md
+          grep -q '| LLM007 | warning | 1 |' target/summary.md
+          test "$(grep -c '^| LLM' target/summary.md)" -eq 15
+          echo "summary ok"
+
       - name: 自检 —— 仓库里的配置能替代手写参数
         run: |
           cd samples/config-demo

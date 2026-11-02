@@ -75,7 +75,8 @@ runs:
         LLM_LINT_JAR: ${{ inputs.jar || format('{0}/llm-lint.jar', runner.temp) }}
       run: |
         # 没填的项不传，配置文件和工具默认值才有机会说话（命令行永远最优先）。
-        args=(--format github)
+        # 摘要写到 RUNNER_TEMP，跑完贴到 job 页面，一眼看清这次脏在哪条规则。
+        args=(--format github --summary "$RUNNER_TEMP/llm-lint-summary.md")
         if [ -n "$LLM_LINT_CONFIG" ]; then
           args+=(--config "$LLM_LINT_CONFIG")
         fi
@@ -95,4 +96,11 @@ runs:
           args+=(--jobs "$LLM_LINT_JOBS")
         fi
         args+=("$LLM_LINT_PATH")
+        set +e
         java -jar "$LLM_LINT_JAR" "${args[@]}"
+        code=$?
+        set -e
+        if [ -f "$RUNNER_TEMP/llm-lint-summary.md" ]; then
+          cat "$RUNNER_TEMP/llm-lint-summary.md" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        exit $code

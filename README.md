@@ -1,5 +1,7 @@
 # llm-lint
 
+中文 | [English](README.en.md)
+
 [![ci](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml)
 
 **扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那些最贵的坑。**
@@ -134,7 +136,9 @@ baseline: .llm-lint.baseline
     # disable: LLM009       # 临时的；长期的开关写进 .llm-lint.yml
 ```
 
-问题会直接标在 diff 的对应行上（GitHub Actions 注解格式），不用翻日志。
+问题会直接标在 diff 的对应行上（GitHub Actions 注解格式），job 页面还会多一段摘要
+（按规则列出条数），不用翻日志。还没有 workflow 的话：`java -jar llm-lint.jar --init-ci`
+直接在当前仓库写一份。
 
 想让问题进仓库的 **Security → Code scanning** 面板：
 
@@ -186,9 +190,10 @@ baseline: .llm-lint.baseline
 llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--min-severity info|warning|error] [--disable LLM004,LLM009]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
-         [--config .llm-lint.yml | --no-config] [--init] [--print-config]
+         [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--jobs N] [--explain LLM001] [--list-rules] <path...>
+         [--baseline-stats] [--summary <file>] [--jobs N]
+         [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
   --fail-on       error（默认）/ warning（警告也卡）/ never（只报告，不失败）
@@ -199,10 +204,12 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --config        用指定的配置文件（默认自动找仓库里的 .llm-lint.yml）
   --no-config     不读配置文件
   --init          在当前目录写一份带注释的 .llm-lint.yml
+  --init-ci       在 .github/workflows/ 下写一份 GitHub Actions 配置
   --print-config  打印实际生效的配置（含默认值），可以存回当配置文件
   --baseline      读这份基线，清单里的旧问题不再报（也见配置里的 baseline:）
   --save-baseline 把这次的问题并进这份基线；已有条目一条不删
   --baseline-stats 打印基线里还剩多少条、哪几条已经修好可以删
+  --summary       把一段 Markdown 摘要写进文件（适合 CI 的 job 摘要）
   --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
   --explain       一条规则的级别、框架、理由、抑制方式
 ```
@@ -273,6 +280,7 @@ java -jar target/llm-lint.jar --list-rules
 - `samples/suppressed/` —— 验证 `// llm-lint:ignore` 只压掉指定的那一条
 - `samples/config-demo/` —— 三个反例 + 一份 `.llm-lint.yml`，配好之后必须**只剩一条** error
 - `BaselineTest` / `BaselineCliTest` —— 基线：旧问题存进去后退出 0，新犯的照样退出 1
+- `ExcludeTest` / `SummaryCliTest` / `InitCiTest` —— 相对路径排除、摘要文件、`--init-ci`
 
 改规则先改前三个目录。CI 还会用自己发布的 action 扫一遍 `samples/good`（必须通过）、
 `samples/bad`（必须失败）和 `samples/config-demo`（带着仓库配置也必须失败），确保「别人拿到
@@ -283,7 +291,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.5.0 && git push origin v0.5.0
+git tag v0.6.0 && git push origin v0.6.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

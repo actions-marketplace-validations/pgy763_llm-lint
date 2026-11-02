@@ -11,6 +11,7 @@ import io.github.pgy763.llmlint.engine.SourceCache;
 import io.github.pgy763.llmlint.report.GitHubReport;
 import io.github.pgy763.llmlint.report.JsonReport;
 import io.github.pgy763.llmlint.report.SarifReport;
+import io.github.pgy763.llmlint.report.SummaryReport;
 import io.github.pgy763.llmlint.report.TextReport;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -86,6 +87,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--init", description = "在当前目录写一份带注释的 .llm-lint.yml 后退出")
     private boolean init;
 
+    @Option(names = "--init-ci", arity = "0..1", paramLabel = "<dir>",
+            description = "在 <dir>/.github/workflows/ 下写一份 GitHub Actions 配置（默认当前目录）")
+    private Path initCi;
+
     @Option(names = "--print-config", description = "打印实际生效的配置（含默认值）后退出")
     private boolean printConfig;
 
@@ -100,6 +105,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--baseline-stats",
             description = "打印基线里还剩多少条、已经修好多少条（需要 --baseline 或配置里的 baseline:）")
     private boolean baselineStats;
+
+    @Option(names = "--summary", paramLabel = "<file>",
+            description = "把一段 Markdown 摘要写进文件（适合 GitHub Actions 的 step summary）")
+    private Path summary;
 
     @Option(names = "--no-context", description = "text 格式下不打印源码行")
     private boolean noContext;
@@ -121,6 +130,9 @@ public final class Main implements Callable<Integer> {
 
         if (init) {
             return writeInit(out, err);
+        }
+        if (initCi != null) {
+            return writeInitCi(out, err, initCi);
         }
 
         List<Rule> canonical = Rules.all();
@@ -245,6 +257,20 @@ public final class Main implements Callable<Integer> {
         }
         out.flush();
 
+        if (summary != null) {
+            try {
+                Path target = summary.toAbsolutePath();
+                Files.createDirectories(target.getParent());
+                Files.writeString(target,
+                        SummaryReport.format(findings, rules, result.filesScanned(),
+                                known.size(), result.suppressed()),
+                        StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                err.println("llm-lint: 摘要写不进去：" + e.getMessage());
+                return 2;
+            }
+        }
+
         if (!quiet) {
             if (config.file() != null) {
                 err.printf("llm-lint: 配置 %s（%s）%n",
@@ -347,6 +373,54 @@ public final class Main implements Callable<Integer> {
         out.println("写好：" + target + "（里面全是注释，去掉某行的 # 就是启用那条规则）");
         out.println("改完跑一次 `llm-lint --print-config`，看实际生效的是什么。");
         return 0;
+    }
+
+    private Integer writeInitCi(PrintWriter out, PrintWriter err, Path dir) {
+        Path target = dir.resolve(".github/workflows/llm-lint.yml");
+        if (Files.exists(target)) {
+            err.println("已经有 " + target + " 了，不覆盖；要重写就先删掉它。");
+            return 2;
+        }
+        try {
+            Files.createDirectories(target.toAbsolutePath().getParent());
+            Files.writeString(target, ciTemplate(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            err.println("写不了 " + target + "：" + e.getMessage());
+            return 2;
+        }
+        out.println("写好：" + target + "（push 到 main、开 PR 都会跑）");
+        out.println("它用 pgy763/llm-lint@v1，第一次跑会从 release 下 jar；想钉版本就在 with: 下写 version: <版本号>。");
+        out.println("想让规则开关跟着仓库走：llm-lint --init");
+        return 0;
+    }
+
+    private static String ciTemplate() {
+        return """
+                # llm-lint：扫 Java 源码里 LLM 集成常见的坑。
+                # 注解会挂在 PR 的「Files changed」对应行上；有 error 这条 job 就红。
+                name: llm-lint
+
+                on:
+                  push:
+                    branches: [main]
+                  pull_request:
+
+                permissions:
+                  contents: read
+
+                jobs:
+                  lint:
+                    runs-on: ubuntu-latest
+                    steps:
+                      - uses: actions/checkout@v4
+                      - uses: pgy763/llm-lint@v1
+                        with:
+                          path: src/main/java
+                          # 仓库里有 .llm-lint.yml 就会自动读；也可以显式指定：
+                          # config: .llm-lint.yml
+                          # 存量项目先记下旧问题，只拦新问题：
+                          # baseline: .llm-lint.baseline
+                """;
     }
 
     private Integer printExplanation(String id, Config config, List<Rule> canonical,
