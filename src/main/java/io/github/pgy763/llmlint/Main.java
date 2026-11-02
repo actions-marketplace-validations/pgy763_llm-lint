@@ -32,8 +32,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 @Command(
         name = "llm-lint",
@@ -89,6 +91,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--save-baseline", paramLabel = "<file>",
             description = "把这次的结果记进基线文件（已有的保留），给存量项目开个头")
     private Path saveBaseline;
+
+    @Option(names = "--baseline-stats",
+            description = "打印基线里还剩多少条、已经修好多少条（需要 --baseline 或配置里的 baseline:）")
+    private boolean baselineStats;
 
     @Option(names = "--no-context", description = "text 格式下不打印源码行")
     private boolean noContext;
@@ -160,12 +166,12 @@ public final class Main implements Callable<Integer> {
             return 2;
         }
 
-        LintResult result = new LintEngine(rules, excludes).run(paths);
-        List<Finding> findings = result.findings().stream()
-                .filter(f -> rank(f.severity()) >= rank(parseSeverity(minSeverityValue)))
-                .toList();
-
         Path baselinePath = resolveBaseline(config);
+        if (baselineStats && baselinePath == null) {
+            err.println("llm-lint: --baseline-stats 得先有一份基线：加 --baseline <file>，"
+                    + "或者在 .llm-lint.yml 里写 baseline:");
+            return 2;
+        }
         Baseline baseline = Baseline.empty();
         if (baselinePath != null) {
             try {
@@ -175,6 +181,13 @@ public final class Main implements Callable<Integer> {
                 return 2;
             }
         }
+
+        LintResult result = new LintEngine(rules, excludes).run(paths);
+        List<Finding> findings = result.findings().stream()
+                .filter(f -> rank(f.severity()) >= rank(parseSeverity(minSeverityValue)))
+                .toList();
+        // 基线统计要的是「扫出来的全部问题」，不是去掉旧账之后剩下的那些。
+        List<Finding> scanned = findings;
 
         if (saveBaseline != null) {
             Baseline base = baseline;
@@ -245,6 +258,23 @@ public final class Main implements Callable<Integer> {
                     findings.size(), errors, warnings, result.filesScanned(), extra);
             if (result.filesSkipped() > 0) {
                 err.printf("llm-lint: 另有 %d 个文件解析失败被跳过%n", result.filesSkipped());
+            }
+        }
+
+        if (baselineStats) {
+            Map<String, Integer> stale = baseline.staleByRule(scanned);
+            int staleCount = stale.values().stream().mapToInt(Integer::intValue).sum();
+            err.printf("llm-lint: 基线 %s：共 %d 条，还在报 %d 条%n",
+                    ConfigLoader.display(baselinePath, Path.of("").toAbsolutePath()),
+                    baseline.size(), baseline.size() - staleCount);
+            if (baseline.size() > 0) {
+                err.printf("llm-lint:   按规则：%s%n", formatCounts(baseline.byRule()));
+            }
+            if (staleCount > 0) {
+                err.printf("llm-lint:   已经修好 %d 条（%s）—— 确认无误就删掉这些行，基线才算真的收紧%n",
+                        staleCount, formatCounts(stale));
+            } else {
+                err.println("llm-lint:   没有修好的旧问题");
             }
         }
 
@@ -327,6 +357,13 @@ public final class Main implements Callable<Integer> {
     }
 
     /** 配置改过就说明改成了什么，没改就还是规则自己的级别。 */
+    /** "LLM001 2、LLM007 120" —— 统计行的紧凑写法。 */
+    private static String formatCounts(Map<String, Integer> counts) {
+        return counts.entrySet().stream()
+                .map(e -> e.getKey() + " " + e.getValue())
+                .collect(Collectors.joining("、"));
+    }
+
     private static String levelText(Config config, Rule rule) {
         return config.levelOf(rule.id())
                 .map(level -> level == RuleLevel.OFF

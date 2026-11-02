@@ -127,6 +127,31 @@ class BaselineTest {
     }
 
     @Test
+    void 按规则统计时按规则号排序() {
+        Baseline baseline = Baseline.empty()
+                .plus(List.of(finding("LLM010", "src/A.java", 1, "a"),
+                        finding("LLM001", "src/A.java", 2, "b"),
+                        finding("LLM010", "src/B.java", 3, "c")));
+
+        assertEquals(List.of("LLM001", "LLM010"), List.copyOf(baseline.byRule().keySet()));
+        assertEquals(1, baseline.byRule().get("LLM001"));
+        assertEquals(2, baseline.byRule().get("LLM010"));
+    }
+
+    @Test
+    void 已经不再出现的问题算修好了() {
+        Baseline baseline = Baseline.empty()
+                .plus(List.of(finding("LLM007", "src/A.java", 1, "还报"),
+                        finding("LLM010", "src/B.java", 2, "修好了")));
+
+        var stale = baseline.staleByRule(List.of(finding("LLM007", "src/A.java", 99, "还报")));
+
+        assertEquals(1, stale.size());
+        assertEquals(1, stale.get("LLM010"));
+        assertFalse(stale.containsKey("LLM007"), "还在报的不能算修好");
+    }
+
+    @Test
     void 文件不存在时告诉用户下一步() {
         IOException e = assertThrows(IOException.class, () -> Baseline.load(tmp.resolve("没有这个文件.txt")));
 

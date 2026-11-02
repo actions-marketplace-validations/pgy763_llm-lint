@@ -98,7 +98,8 @@ java -jar llm-lint.jar --save-baseline .llm-lint.baseline --fail-on never src/ma
 
 - 相对路径按**配置文件所在目录**算（不是当前目录），所以从子目录里跑也指得对。
 - 命令行 `--baseline` 优先于这里；`--save-baseline` 总是写到命令行给的那个文件。
-- 清单格式、匹配规则、怎么更新见 **[baseline.md](baseline.md)**。
+- 清单格式、匹配规则、怎么更新见 **[baseline.md](baseline.md)**；看还剩多少旧账用
+  `--baseline-stats`。
 
 ### exclude
 

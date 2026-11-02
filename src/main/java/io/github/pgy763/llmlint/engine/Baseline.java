@@ -6,9 +6,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * 存量项目的基线：把「已经决定先不管的旧问题」记在仓库里，CI 只拦新出现的那些。
@@ -82,6 +86,34 @@ public final class Baseline {
     /** 这个问题是不是已经在基线里了（行号、列号不参与匹配）。 */
     public boolean contains(Finding finding) {
         return entries.contains(key(finding));
+    }
+
+    /** 基线里每条规则各占多少条（按规则号排序），给 --baseline-stats 用。 */
+    public Map<String, Integer> byRule() {
+        return counts(entries);
+    }
+
+    /**
+     * 这次扫完，基线里已经对不上任何问题的条目：按规则号分组。这些就是「已经修好、
+     * 可以从清单里删掉」的旧账——工具不替你删，删不删、什么时候删由人决定。
+     */
+    public Map<String, Integer> staleByRule(Collection<Finding> findings) {
+        Set<String> current = new HashSet<>();
+        for (Finding finding : findings) {
+            current.add(key(finding));
+        }
+        Set<String> stale = new LinkedHashSet<>(entries);
+        stale.removeAll(current);
+        return counts(stale);
+    }
+
+    private static Map<String, Integer> counts(Collection<String> lines) {
+        Map<String, Integer> counts = new TreeMap<>();
+        for (String line : lines) {
+            String ruleId = line.substring(0, line.indexOf(SEP));
+            counts.merge(ruleId, 1, Integer::sum);
+        }
+        return counts;
     }
 
     /** 把这次的结果并进来，已有的条目一个不动：基线只会变长，删条目得人来决定。 */

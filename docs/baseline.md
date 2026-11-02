@@ -68,6 +68,25 @@ LLM007	src/main/java/demo/SupportAssistant.java	`maxTokens(128)` 只留了 128 �
 想看哪些条目已经没人报了，`--save-baseline` 之后看 diff：删掉行对应的旧条目可以顺手清掉，
 **清单只会因为你的编辑而变短**，工具不会偷偷删。
 
+## 还剩多少旧账
+
+清单交上去只是开始，之后要能看出「债还得怎么样了」。加 `--baseline-stats` 就会按规则列出来：
+
+```console
+$ llm-lint --baseline .llm-lint.baseline --baseline-stats src/main/java
+llm-lint: 基线 .llm-lint.baseline：共 312 条，还在报 310 条
+llm-lint:   按规则：LLM004 12、LLM007 180、LLM009 118
+llm-lint:   已经修好 2 条（LLM010 2）—— 确认无误就删掉这些行，基线才算真的收紧
+```
+
+- 「还在报」= 清单里仍然对得上当前问题的条目；剩下的是**已经修好、可以从清单里删掉**的。
+- `--baseline-stats` 需要一份基线（`--baseline` 或配置里的 `baseline:`），没有就退出 `2`。
+- 它只读不写，不改清单；删不删、什么时候删由人决定。
+- `--quiet` 不会吞掉统计：显式要的这份明细比总结更重要。
+
+**收紧清单的节奏**：修完一批 → `--baseline-stats` 看「已经修好」→ 手工删掉那几行 →
+提交。diff 里只出现删除行，review 一眼能看出「这次还掉了几条债」。
+
 ## 文件格式
 
 ```
@@ -114,7 +133,7 @@ java -jar llm-lint.jar --format sarif --baseline .llm-lint.baseline src/main/jav
 确认修好了，就在 diff 里把那行删掉——review 时一眼能看到「这次少了一条」。
 
 **只想看清单里还剩多少？**
-`--save-baseline` 的统计行会写「共 N 条，这次新增 M 条」；`--baseline` 的统计行写
+`--baseline-stats` 会按规则列出来（见上一节）；不带它时，`--baseline` 的统计行写
 「另有 N 条在基线里」。
 
 **基线要不要跟着分支走？**

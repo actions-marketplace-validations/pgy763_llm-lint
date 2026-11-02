@@ -122,6 +122,60 @@ class BaselineCliTest {
     }
 
     @Test
+    void 统计能看出还剩多少旧账(@TempDir Path tmp) throws IOException {
+        Path src = copyBad(tmp);
+        Path baseline = tmp.resolve("llm-lint.baseline");
+        run("--save-baseline", baseline.toString(), "--fail-on", "never", src.toString());
+
+        Run stats = run("--baseline", baseline.toString(), "--baseline-stats", "--format", "json", src.toString());
+
+        assertEquals(0, stats.code, stats.combined());
+        assertTrue(stats.err().contains("共 15 条，还在报 15 条"), stats.err());
+        assertTrue(stats.err().contains("按规则：LLM001 1、LLM002 1"), stats.err());
+        assertTrue(stats.err().contains("没有修好的旧问题"), stats.err());
+    }
+
+    @Test
+    void 修好的旧问题会被统计出来(@TempDir Path tmp) throws IOException {
+        Path src = copyBad(tmp);
+        Path baseline = tmp.resolve("llm-lint.baseline");
+        run("--save-baseline", baseline.toString(), "--fail-on", "never", src.toString());
+
+        // 把一个文件删掉 = 那个旧问题没了，基线里那一行就成了「可以删的旧账」
+        Files.delete(src.resolve("LLM010_HardcodedKey.java"));
+
+        Run stats = run("--baseline", baseline.toString(), "--baseline-stats", src.toString());
+
+        assertEquals(0, stats.code, stats.combined());
+        assertTrue(stats.err().contains("共 15 条，还在报 14 条"), stats.err());
+        assertTrue(stats.err().contains("已经修好 1 条（LLM010 1）"), stats.err());
+    }
+
+    @Test
+    void 没有基线时统计退出2(@TempDir Path tmp) throws IOException {
+        Path src = copyBad(tmp);
+
+        Run run = run("--baseline-stats", src.toString());
+
+        assertEquals(2, run.code, run.combined());
+        assertTrue(run.err().contains("--baseline-stats"), run.err());
+        assertTrue(run.err().contains("baseline:"), "要提示配置里的写法：" + run.err());
+    }
+
+    @Test
+    void quiet不会把统计也吞掉(@TempDir Path tmp) throws IOException {
+        Path src = copyBad(tmp);
+        Path baseline = tmp.resolve("llm-lint.baseline");
+        run("--save-baseline", baseline.toString(), "--fail-on", "never", src.toString());
+
+        Run stats = run("--baseline", baseline.toString(), "--baseline-stats", "--quiet", src.toString());
+
+        assertEquals(0, stats.code, stats.combined());
+        assertTrue(stats.err().contains("还在报 15 条"), "显式要的统计不该被 --quiet 吞掉：" + stats.err());
+        assertFalse(stats.err().contains("个问题（"), "--quiet 该压掉的是那行总结：" + stats.err());
+    }
+
+    @Test
     void 基线文件找不到时退出2(@TempDir Path tmp) throws IOException {
         Path src = copyBad(tmp);
 

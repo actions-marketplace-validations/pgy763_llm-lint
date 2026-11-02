@@ -40,15 +40,76 @@ jobs:
               ;;
           esac
 
-      - name: 建 release，附上 jar
+      - name: 生成本版摘要（按 commit 前缀分组）
+        run: |
+          python3 - <<'PY' > RELEASE_NOTES.md
+          import os
+          import subprocess
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+
+          def git(*args):
+              return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
+
+          # 上一个正式版本 tag（按版本号排；v1 这种指针不参与）
+          older = [t for t in git("tag", "--list", "v*.*.*", "--sort=-v:refname").split() if t != tag]
+          prev = older[0] if older else None
+          rng = f"{prev}..{tag}" if prev else tag
+
+          groups = [("feat", "新功能"), ("fix", "修复"), ("perf", "性能"),
+                    ("docs", "文档"), ("test", "测试"), ("ci", "CI 与发版"),
+                    ("refactor", "重构"), ("revert", "回滚"), ("chore", "杂项")]
+          buckets = {key: [] for key, _ in groups}
+          other = []
+
+          for line in git("log", "--no-merges", "--pretty=format:%h\t%s", rng).splitlines():
+              if "\t" not in line:
+                  continue
+              sha, subject = line.split("\t", 1)
+              if ":" in subject:
+                  kind = subject.split(":", 1)[0].split("(")[0].strip().lower()
+                  text = subject.split(":", 1)[1].strip()
+              else:
+                  kind, text = "", subject
+              if kind in buckets:
+                  buckets[kind].append(f"- {text}（`{sha}`）")
+              else:
+                  other.append(f"- {subject}（`{sha}`）")
+
+          out = ["## 本版变化", ""]
+          for key, title in groups:
+              if buckets[key]:
+                  out.append(f"### {title}")
+                  out.extend(buckets[key])
+                  out.append("")
+          if other:
+              out.append("### 其他")
+              out.extend(other)
+              out.append("")
+          if len(out) == 2:
+              out.append("- 没有可列出的改动")
+              out.append("")
+          if prev:
+              out.append(f"**完整对比**：https://github.com/{repo}/compare/{prev}...{tag}")
+          else:
+              out.append(f"**完整对比**：https://github.com/{repo}/releases/tag/{tag}")
+          print("\n".join(out))
+          PY
+          echo "----- release 正文 -----"
+          cat RELEASE_NOTES.md
+
+      - name: 建 release，附上 jar 和本版摘要
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # 重跑（比如 tag 被挪过）时正文也要跟着更新，不能只换 jar
+            gh release edit "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
             gh release upload "$GITHUB_REF_NAME" target/llm-lint.jar --clobber
           else
             gh release create "$GITHUB_REF_NAME" target/llm-lint.jar \
-              --title "$GITHUB_REF_NAME" --generate-notes
+              --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
           fi
 
       - name: v1 指针挪到这个版本

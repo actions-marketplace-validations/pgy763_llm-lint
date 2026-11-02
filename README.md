@@ -116,6 +116,7 @@ baseline: .llm-lint.baseline
 - `--save-baseline` 只增不减（已有的条目会合并进来），删旧条目要自己改 diff——防止一次误操作
   把历史债「洗白」。
 - `--baseline` 指向的文件不存在就退出 `2`，不会静默当成空清单：路径写错时几百条全红最难查。
+- 想知道债还得怎么样了：`--baseline-stats` 按规则列出还剩多少条、哪几条已经修好（可以删行）。
 
 详见 **[docs/baseline.md](docs/baseline.md)**。
 
@@ -187,7 +188,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--explain LLM001] [--list-rules] <path...>
+         [--baseline-stats] [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
   --fail-on       error（默认）/ warning（警告也卡）/ never（只报告，不失败）
@@ -201,6 +202,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --print-config  打印实际生效的配置（含默认值），可以存回当配置文件
   --baseline      读这份基线，清单里的旧问题不再报（也见配置里的 baseline:）
   --save-baseline 把这次的问题并进这份基线；已有条目一条不删
+  --baseline-stats 打印基线里还剩多少条、哪几条已经修好可以删
   --explain       一条规则的级别、框架、理由、抑制方式
 ```
 
@@ -278,12 +280,16 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.4.0 && git push origin v0.4.0
+git tag v0.4.1 && git push origin v0.4.1
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
 传上去，再把 `v1` 指针挪到这个 tag —— 所以 `uses: pgy763/llm-lint@v1` 一直拿到最新版，用户
 不用跟着改 workflow。
+
+release 正文也是自动写的：按 commit 前缀（`feat:` / `fix:` / `docs:` …）分组成中文小节，
+末尾附上 `上一个版本...本版` 的 compare 链接。所以 commit 标题尽量守约定，正文就能直接看。
+重跑同一个 tag（比如 tag 被挪过）时，正文和 jar 会一起更新，不会只换 jar。
 
 jar 这个 asset 不能省：`action.yml` 默认从 `releases/latest/download/llm-lint.jar` 取工具本体，
 release 里没有它，别人装到的就是上一版。
