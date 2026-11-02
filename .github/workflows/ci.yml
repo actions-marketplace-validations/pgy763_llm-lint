@@ -59,6 +59,13 @@ jobs:
           print("json ok")
           PY
 
+      - name: 自检 —— 并行扫的结果和串行一模一样
+        run: |
+          java -jar target/llm-lint.jar --jobs 1 --format json samples/bad > serial.json || true
+          java -jar target/llm-lint.jar --jobs 4 --format json samples/bad > parallel.json || true
+          cmp serial.json parallel.json
+          echo "parallel ok"
+
       - name: 自检 —— 仓库里的配置能替代手写参数
         run: |
           cd samples/config-demo

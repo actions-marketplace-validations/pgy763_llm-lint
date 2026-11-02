@@ -16,62 +16,141 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
 /** 找 .java、解析、跑规则、过滤抑制注释。解析失败只提示，不中断。 */
 public final class LintEngine {
 
+    /** 结果顺序：文件、行、列、规则、消息。并行扫的时候靠它把顺序钉死。 */
+    private static final Comparator<Finding> ORDER = Comparator
+            .comparing(Finding::file)
+            .thenComparingInt(Finding::line)
+            .thenComparingInt(Finding::column)
+            .thenComparing(Finding::ruleId)
+            .thenComparing(Finding::message);
+
     private final List<Rule> rules;
     private final List<String> excludePatterns;
+    private final int jobs;
+    private final ParserConfiguration parserConfig;
     private final JavaParser parser;
+    private final ThreadLocal<JavaParser> threadParsers;
 
     public LintEngine(List<Rule> rules, List<String> excludePatterns) {
+        this(rules, excludePatterns, 1);
+    }
+
+    /**
+     * @param jobs 同时扫几个文件；1 表示顺序扫。JavaParser 不是线程安全的，每个线程各拿一个。
+     */
+    public LintEngine(List<Rule> rules, List<String> excludePatterns, int jobs) {
         this.rules = List.copyOf(rules);
         this.excludePatterns = excludePatterns == null ? List.of() : List.copyOf(excludePatterns);
-        ParserConfiguration config = new ParserConfiguration()
+        this.jobs = Math.max(1, jobs);
+        this.parserConfig = new ParserConfiguration()
                 .setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_17)
                 .setAttributeComments(false);
-        this.parser = new JavaParser(config);
+        this.parser = new JavaParser(parserConfig);
+        this.threadParsers = ThreadLocal.withInitial(() -> new JavaParser(parserConfig));
     }
 
     public LintResult run(List<Path> roots) throws IOException {
         List<Path> files = collect(roots);
         SourceCache sources = new SourceCache();
+        List<Partial> partials = scanAll(files, sources);
+
         List<Finding> findings = new ArrayList<>();
         int scanned = 0;
         int skipped = 0;
         int suppressed = 0;
-
-        for (Path file : files) {
-            ParseResult<CompilationUnit> parsed = parser.parse(file);
-            if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
-                System.err.println("跳过（解析失败）: " + file);
+        for (Partial partial : partials) {
+            if (partial.parseFailed()) {
+                System.err.println("跳过（解析失败）: " + partial.file());
                 skipped++;
                 continue;
             }
             scanned++;
-            CompilationUnit cu = parsed.getResult().get();
-            List<String> lines = sources.lines(file);
-            for (Rule rule : rules) {
-                if (Suppressions.fileSuppressed(lines, rule.id())) {
+            findings.addAll(partial.findings());
+            suppressed += partial.suppressed();
+        }
+
+        findings.sort(ORDER);
+        return new LintResult(findings, scanned, skipped, suppressed);
+    }
+
+    private List<Partial> scanAll(List<Path> files, SourceCache sources) throws IOException {
+        if (files.isEmpty()) {
+            return List.of();
+        }
+        if (jobs == 1 || files.size() == 1) {
+            List<Partial> out = new ArrayList<>(files.size());
+            for (Path file : files) {
+                out.add(scan(file, sources, parser));
+            }
+            return out;
+        }
+
+        int threads = Math.min(jobs, files.size());
+        ExecutorService pool = Executors.newFixedThreadPool(threads, r -> {
+            Thread thread = new Thread(r, "llm-lint-scan");
+            thread.setDaemon(true);
+            return thread;
+        });
+        try {
+            List<Future<Partial>> futures = new ArrayList<>(files.size());
+            for (Path file : files) {
+                futures.add(pool.submit(() -> scan(file, sources, threadParsers.get())));
+            }
+            // 按 files 的顺序收：日志里的「跳过（解析失败）」和最终排序都不受调度影响。
+            List<Partial> out = new ArrayList<>(files.size());
+            for (Future<Partial> future : futures) {
+                try {
+                    out.add(future.get());
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException("扫描被中断", e);
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause() == null ? e : e.getCause();
+                    throw new IOException("扫描失败：" + cause, cause);
+                }
+            }
+            return out;
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private Partial scan(Path file, SourceCache sources, JavaParser javaParser) throws IOException {
+        ParseResult<CompilationUnit> parsed = javaParser.parse(file);
+        if (!parsed.isSuccessful() || parsed.getResult().isEmpty()) {
+            return new Partial(file, true, List.of(), 0);
+        }
+
+        List<Finding> found = new ArrayList<>();
+        int suppressed = 0;
+        List<String> lines = sources.lines(file);
+        CompilationUnit cu = parsed.getResult().get();
+        for (Rule rule : rules) {
+            if (Suppressions.fileSuppressed(lines, rule.id())) {
+                suppressed++;
+                continue;
+            }
+            for (Finding finding : rule.check(file, cu)) {
+                if (Suppressions.suppressedAt(lines, finding.line(), finding.ruleId())) {
                     suppressed++;
                     continue;
                 }
-                for (Finding f : rule.check(file, cu)) {
-                    if (Suppressions.suppressedAt(lines, f.line(), f.ruleId())) {
-                        suppressed++;
-                        continue;
-                    }
-                    findings.add(f);
-                }
+                found.add(finding);
             }
         }
+        return new Partial(file, false, found, suppressed);
+    }
 
-        findings.sort(Comparator
-                .comparing(Finding::file)
-                .thenComparingInt(Finding::line)
-                .thenComparing(Finding::ruleId));
-        return new LintResult(findings, scanned, skipped, suppressed);
+    private record Partial(Path file, boolean parseFailed, List<Finding> findings, int suppressed) {
     }
 
     public List<Path> collect(List<Path> roots) throws IOException {

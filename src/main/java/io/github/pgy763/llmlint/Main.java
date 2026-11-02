@@ -72,6 +72,10 @@ public final class Main implements Callable<Integer> {
             description = "不扫的路径，逗号分隔，如 **/generated/**,**/test/java/**")
     private List<String> exclude = new ArrayList<>();
 
+    @Option(names = "--jobs", paramLabel = "<n>",
+            description = "同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来")
+    private int jobs;
+
     @Option(names = "--config", paramLabel = "<file>",
             description = "配置文件；默认从当前目录往上找 .llm-lint.yml")
     private Path configFile;
@@ -183,7 +187,13 @@ public final class Main implements Callable<Integer> {
             }
         }
 
-        LintResult result = new LintEngine(rules, excludes).run(paths);
+        if (jobs < 0) {
+            err.println("llm-lint: --jobs 不能是负数：1 表示一个一个扫，不写就按 CPU 核数来");
+            return 2;
+        }
+        int threads = jobs == 0 ? Math.min(Runtime.getRuntime().availableProcessors(), 8) : jobs;
+
+        LintResult result = new LintEngine(rules, excludes, threads).run(paths);
         List<Finding> findings = result.findings().stream()
                 .filter(f -> rank(f.severity()) >= rank(parseSeverity(minSeverityValue)))
                 .toList();

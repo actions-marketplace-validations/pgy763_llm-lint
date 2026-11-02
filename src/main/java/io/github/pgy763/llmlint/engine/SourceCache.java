@@ -4,14 +4,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
-/** 源码行缓存：抑制注释和代码帧都要用，同一个文件只读一次。 */
+/** 源码行缓存：抑制注释和代码帧都要用，同一个文件只读一次；并行扫时多线程共用。 */
 public final class SourceCache {
 
-    private final Map<Path, List<String>> cache = new HashMap<>();
+    private final Map<Path, List<String>> cache = new ConcurrentHashMap<>();
 
     public List<String> lines(Path file) {
         return cache.computeIfAbsent(file, f -> {

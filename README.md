@@ -188,7 +188,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--explain LLM001] [--list-rules] <path...>
+         [--baseline-stats] [--jobs N] [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
   --fail-on       error（默认）/ warning（警告也卡）/ never（只报告，不失败）
@@ -203,10 +203,13 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --baseline      读这份基线，清单里的旧问题不再报（也见配置里的 baseline:）
   --save-baseline 把这次的问题并进这份基线；已有条目一条不删
   --baseline-stats 打印基线里还剩多少条、哪几条已经修好可以删
+  --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
   --explain       一条规则的级别、框架、理由、抑制方式
 ```
 
 `<path>` 可以是目录，也可以是单个 `.java`。目录会递归找 `.java`，跳过 `target/` 和 `build/`。
+文件是并行解析的（默认最多 8 个线程），输出顺序和串行完全一样，大仓库快一倍上下；
+机器吃紧或想复现某个顺序时加 `--jobs 1`。
 
 ### 某一行确实没有问题
 
@@ -280,7 +283,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.4.2 && git push origin v0.4.2
+git tag v0.5.0 && git push origin v0.5.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
