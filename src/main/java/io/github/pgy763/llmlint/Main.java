@@ -11,6 +11,7 @@ import io.github.pgy763.llmlint.engine.LintResult;
 import io.github.pgy763.llmlint.engine.SourceCache;
 import io.github.pgy763.llmlint.report.GitHubReport;
 import io.github.pgy763.llmlint.report.JsonReport;
+import io.github.pgy763.llmlint.report.MarkdownReport;
 import io.github.pgy763.llmlint.report.SarifReport;
 import io.github.pgy763.llmlint.report.SummaryReport;
 import io.github.pgy763.llmlint.report.TextReport;
@@ -114,6 +115,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--summary", paramLabel = "<file>",
             description = "把一段 Markdown 摘要写进文件（适合 GitHub Actions 的 step summary）")
     private Path summary;
+
+    @Option(names = "--markdown", paramLabel = "<file>",
+            description = "把「一条问题一行」的 Markdown 明细写进文件（给 PR 评论用，Action 会原地更新）")
+    private Path markdown;
 
     @Option(names = "--no-context", description = "text 格式下不打印源码行")
     private boolean noContext;
@@ -305,6 +310,20 @@ public final class Main implements Callable<Integer> {
             }
         }
 
+        if (markdown != null) {
+            try {
+                Path target = markdown.toAbsolutePath();
+                Files.createDirectories(target.getParent());
+                Files.writeString(target,
+                        MarkdownReport.format(findings, result.filesScanned(),
+                                known.size(), result.suppressed()),
+                        StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                err.println("llm-lint: 评论写不进去：" + e.getMessage());
+                return 2;
+            }
+        }
+
         if (!quiet) {
             if (config.file() != null) {
                 err.printf("llm-lint: 配置 %s（%s）%n",
@@ -441,6 +460,8 @@ public final class Main implements Callable<Integer> {
 
                 permissions:
                   contents: read
+                  # PR 里留一条可更新的汇总评论要用它；不想要评论就删掉这行、再写 pr-comment: 'false'
+                  pull-requests: write
 
                 jobs:
                   lint:

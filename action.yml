@@ -36,6 +36,10 @@ inputs:
     description: '只扫这个 git 引用以来改动的文件，如 origin/main（PR 里传目标分支，checkout 要 fetch-depth: 0）'
     required: false
     default: ''
+  pr-comment:
+    description: '在 PR 里留一条可更新的汇总评论（需要 permissions: pull-requests: write；默认 true）'
+    required: false
+    default: 'true'
   version:
     description: 'llm-lint 版本；默认 latest'
     required: false
@@ -81,7 +85,8 @@ runs:
       run: |
         # 没填的项不传，配置文件和工具默认值才有机会说话（命令行永远最优先）。
         # 摘要写到 RUNNER_TEMP，跑完贴到 job 页面，一眼看清这次脏在哪条规则。
-        args=(--format github --summary "$RUNNER_TEMP/llm-lint-summary.md")
+        args=(--format github --summary "$RUNNER_TEMP/llm-lint-summary.md"
+              --markdown "$RUNNER_TEMP/llm-lint-comment.md")
         if [ -n "$LLM_LINT_CONFIG" ]; then
           args+=(--config "$LLM_LINT_CONFIG")
         fi
@@ -114,3 +119,32 @@ runs:
           cat "$RUNNER_TEMP/llm-lint-summary.md" >> "$GITHUB_STEP_SUMMARY"
         fi
         exit $code
+
+    - name: 在 PR 里留一条评论
+      if: always() && inputs.pr-comment == 'true' && github.event_name == 'pull_request'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+        BODY: ${{ runner.temp }}/llm-lint-comment.md
+      run: |
+        if [ ! -f "$BODY" ]; then
+          echo "::notice::这次没生成评论文件，跳过"
+          exit 0
+        fi
+        if ! command -v gh >/dev/null 2>&1; then
+          echo "::notice::runner 上没有 gh，跳过 PR 评论；结果看 job 摘要"
+          exit 0
+        fi
+        # 评论开头有 <!-- llm-lint --> 标记，所以找到上次那条就地改，不会每跑一次堆一条。
+        # fork 来的 PR 只有只读 token，这里会 403——那不是扫描失败，通报一声就走。
+        id="$(gh api --paginate "repos/$REPO/issues/$PR/comments" \
+          -q '.[] | select(.body | startswith("<!-- llm-lint -->")) | .id' 2>/dev/null | head -n1 || true)"
+        if [ -n "$id" ]; then
+          gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@"$BODY" >/dev/null \
+            || echo "::notice::评论没更新成（fork 来的 PR 可能只读），结果看 job 摘要"
+        else
+          gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@"$BODY" >/dev/null \
+            || echo "::notice::评论没发成（fork 来的 PR 可能只读），结果看 job 摘要"
+        fi

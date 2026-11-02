@@ -186,6 +186,17 @@ and a short Markdown summary is appended to the job page, so you don't have to d
 
 No workflow yet? `java -jar llm-lint.jar --init-ci` writes one for you.
 
+On pull requests it also leaves one comment — a row per finding (file, line, rule link) — and
+**updates that same comment in place** instead of piling up new ones. The comment needs permission:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write   # drop this line and set pr-comment: 'false' for annotations + job summary only
+```
+
+PRs from forks get a read-only token, so the comment is skipped there; the scan itself is unaffected.
+
 To get findings into the repository's **Security → Code scanning** panel:
 
 ```yaml
@@ -238,7 +249,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--jobs N] [--since <ref>]
+         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
          [--explain LLM001] [--list-rules] <path...>
 
   --format        text (default, for humans) / json / github (Actions annotations) / sarif
@@ -256,6 +267,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --save-baseline merge this run's findings into the baseline; never deletes entries
   --baseline-stats print how many baseline entries remain per rule and which are fixed
   --summary       write a Markdown summary to a file (great for job step summaries)
+  --markdown      write one row per finding to a file (the Action posts it as a sticky PR comment)
   --jobs          how many files to scan at once: default CPU count (max 8), 1 = sequential
   --since         only scan files changed since this git ref, e.g. origin/main or HEAD~1
   --explain       level, framework, rationale and suppression for one rule
@@ -368,7 +380,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.7.1 && git push origin v0.7.1
+git tag v0.8.0 && git push origin v0.8.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

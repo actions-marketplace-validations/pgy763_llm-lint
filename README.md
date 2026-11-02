@@ -170,6 +170,17 @@ baseline: .llm-lint.baseline
 （按规则列出条数），不用翻日志。还没有 workflow 的话：`java -jar llm-lint.jar --init-ci`
 直接在当前仓库写一份。
 
+在 PR 里它还会留一条评论，一条问题一行（文件、行号、规则链接），**每次跑原地更新同一条**，
+不会刷屏。这条评论需要 workflow 给权限：
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write   # 只想要注解和 job 摘要就删掉这行，再写 pr-comment: 'false'
+```
+
+从 fork 来的 PR 拿到的是只读 token，评论会跳过——扫描结果本身不受影响。
+
 想让问题进仓库的 **Security → Code scanning** 面板：
 
 ```yaml
@@ -222,7 +233,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--jobs N] [--since <ref>]
+         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
          [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
@@ -240,6 +251,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --save-baseline 把这次的问题并进这份基线；已有条目一条不删
   --baseline-stats 打印基线里还剩多少条、哪几条已经修好可以删
   --summary       把一段 Markdown 摘要写进文件（适合 CI 的 job 摘要）
+  --markdown      把一条问题一行的明细写进文件（给 PR 评论用，Action 会原地更新）
   --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
   --since         只扫这个 git 引用以来改动的文件，如 origin/main、HEAD~1
   --explain       一条规则的级别、框架、理由、抑制方式
@@ -334,7 +346,7 @@ java -jar target/llm-lint.jar --list-rules
 - `samples/suppressed/` —— 验证 `// llm-lint:ignore` 只压掉指定的那一条
 - `samples/config-demo/` —— 三个反例 + 一份 `.llm-lint.yml`，配好之后必须**只剩一条** error
 - `BaselineTest` / `BaselineCliTest` —— 基线：旧问题存进去后退出 0，新犯的照样退出 1
-- `ExcludeTest` / `SummaryCliTest` / `InitCiTest` / `ChangedFilesTest` / `SinceCliTest` —— 相对路径排除、摘要文件、`--init-ci`、`--since` 的改动文件计算
+- `ExcludeTest` / `SummaryCliTest` / `MarkdownReportTest` / `MarkdownCliTest` / `InitCiTest` / `ChangedFilesTest` / `SinceCliTest` —— 相对路径排除、摘要/评论文件、`--init-ci`、`--since` 的改动文件计算
 
 改规则先改前三个目录。CI 还会用自己发布的 action 扫一遍 `samples/good`（必须通过）、
 `samples/bad`（必须失败）和 `samples/config-demo`（带着仓库配置也必须失败），确保「别人拿到
@@ -345,7 +357,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.7.1 && git push origin v0.7.1
+git tag v0.8.0 && git push origin v0.8.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
