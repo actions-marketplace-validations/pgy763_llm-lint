@@ -32,6 +32,10 @@ inputs:
     description: '同时扫几个文件；留空就按机器核数（最多 8），填 1 表示串行'
     required: false
     default: ''
+  since:
+    description: '只扫这个 git 引用以来改动的文件，如 origin/main（PR 里传目标分支，checkout 要 fetch-depth: 0）'
+    required: false
+    default: ''
   version:
     description: 'llm-lint 版本；默认 latest'
     required: false
@@ -72,6 +76,7 @@ runs:
         LLM_LINT_MIN_SEVERITY: ${{ inputs.min-severity }}
         LLM_LINT_BASELINE: ${{ inputs.baseline }}
         LLM_LINT_JOBS: ${{ inputs.jobs }}
+        LLM_LINT_SINCE: ${{ inputs.since }}
         LLM_LINT_JAR: ${{ inputs.jar || format('{0}/llm-lint.jar', runner.temp) }}
       run: |
         # 没填的项不传，配置文件和工具默认值才有机会说话（命令行永远最优先）。
@@ -95,7 +100,12 @@ runs:
         if [ -n "$LLM_LINT_JOBS" ]; then
           args+=(--jobs "$LLM_LINT_JOBS")
         fi
-        args+=("$LLM_LINT_PATH")
+        if [ -n "$LLM_LINT_SINCE" ]; then
+          args+=(--since "$LLM_LINT_SINCE")
+        fi
+        if [ -n "$LLM_LINT_PATH" ]; then
+          args+=("$LLM_LINT_PATH")
+        fi
         set +e
         java -jar "$LLM_LINT_JAR" "${args[@]}"
         code=$?

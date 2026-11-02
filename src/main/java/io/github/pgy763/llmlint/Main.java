@@ -5,6 +5,7 @@ import io.github.pgy763.llmlint.config.ConfigException;
 import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
 import io.github.pgy763.llmlint.engine.Baseline;
+import io.github.pgy763.llmlint.engine.ChangedFiles;
 import io.github.pgy763.llmlint.engine.LintEngine;
 import io.github.pgy763.llmlint.engine.LintResult;
 import io.github.pgy763.llmlint.engine.SourceCache;
@@ -76,6 +77,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--jobs", paramLabel = "<n>",
             description = "同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来")
     private int jobs;
+
+    @Option(names = "--since", paramLabel = "<ref>",
+            description = "只扫从这个 git 引用以来改动的 .java 文件，如 origin/main、HEAD~1")
+    private String since;
 
     @Option(names = "--config", paramLabel = "<file>",
             description = "配置文件；默认从当前目录往上找 .llm-lint.yml")
@@ -177,10 +182,14 @@ public final class Main implements Callable<Integer> {
             return 0;
         }
 
-        if (paths.isEmpty()) {
+        if (paths.isEmpty() && since == null) {
             err.println("要给一个目录或 .java 文件，比如：llm-lint src/main/java");
             err.println("看全部规则：llm-lint --list-rules");
             return 2;
+        }
+        if (paths.isEmpty()) {
+            // --since 不带路径时，默认看整个仓库的改动。
+            paths = new ArrayList<>(List.of(Path.of(".")));
         }
 
         Path baselinePath = resolveBaseline(config);
@@ -205,7 +214,23 @@ public final class Main implements Callable<Integer> {
         }
         int threads = jobs == 0 ? Math.min(Runtime.getRuntime().availableProcessors(), 8) : jobs;
 
-        LintResult result = new LintEngine(rules, excludes, threads).run(paths);
+        List<Path> toScan = paths;
+        if (since != null) {
+            try {
+                toScan = ChangedFiles.collect(Path.of(""), since);
+            } catch (ChangedFiles.GitException failure) {
+                err.println("llm-lint: " + failure.getMessage());
+                return 2;
+            }
+            if (toScan.isEmpty()) {
+                if (!quiet) {
+                    err.printf("llm-lint: --since %s 以来没有改动的 .java 文件%n", since);
+                }
+                return 0;
+            }
+        }
+
+        LintResult result = new LintEngine(rules, excludes, threads).run(toScan);
         List<Finding> findings = result.findings().stream()
                 .filter(f -> rank(f.severity()) >= rank(parseSeverity(minSeverityValue)))
                 .toList();
@@ -413,9 +438,14 @@ public final class Main implements Callable<Integer> {
                     runs-on: ubuntu-latest
                     steps:
                       - uses: actions/checkout@v4
+                        with:
+                          # PR 里要跟目标分支比，历史得拿全
+                          fetch-depth: 0
                       - uses: pgy763/llm-lint@v1
                         with:
                           path: src/main/java
+                          # 只在 PR 里扫改动的文件（快很多）；push 到 main 时留空就是全量：
+                          # since: origin/${{ github.base_ref }}
                           # 仓库里有 .llm-lint.yml 就会自动读；也可以显式指定：
                           # config: .llm-lint.yml
                           # 存量项目先记下旧问题，只拦新问题：

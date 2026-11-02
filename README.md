@@ -222,7 +222,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--jobs N]
+         [--baseline-stats] [--summary <file>] [--jobs N] [--since <ref>]
          [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
@@ -241,12 +241,35 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --baseline-stats 打印基线里还剩多少条、哪几条已经修好可以删
   --summary       把一段 Markdown 摘要写进文件（适合 CI 的 job 摘要）
   --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
+  --since         只扫这个 git 引用以来改动的文件，如 origin/main、HEAD~1
   --explain       一条规则的级别、框架、理由、抑制方式
 ```
 
 `<path>` 可以是目录，也可以是单个 `.java`。目录会递归找 `.java`，跳过 `target/` 和 `build/`。
 文件是并行解析的（默认最多 8 个线程），输出顺序和串行完全一样，大仓库快一倍上下；
 机器吃紧或想复现某个顺序时加 `--jobs 1`。
+
+### 只扫这次改动的文件
+
+PR 里没必要重扫整个仓库。`--since` 只扫「和这个引用分叉之后动过的文件」——包含还没提交的改动
+和未跟踪的新文件：
+
+```bash
+llm-lint --since origin/main src/main/java
+llm-lint --since origin/main          # 不写路径，就是整个仓库的改动
+```
+
+`origin/main` 换成 `HEAD~1` 或某个 tag 都行。一个改动的 Java 文件都没有时不报错，直接退出 0。
+CI 里用 Action 的话：
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0          # --since 要跟目标分支比，历史得拿全
+- uses: pgy763/llm-lint@v1
+  with:
+    since: origin/${{ github.base_ref }}
+```
 
 ### 某一行确实没有问题
 
@@ -310,7 +333,7 @@ java -jar target/llm-lint.jar --list-rules
 - `samples/suppressed/` —— 验证 `// llm-lint:ignore` 只压掉指定的那一条
 - `samples/config-demo/` —— 三个反例 + 一份 `.llm-lint.yml`，配好之后必须**只剩一条** error
 - `BaselineTest` / `BaselineCliTest` —— 基线：旧问题存进去后退出 0，新犯的照样退出 1
-- `ExcludeTest` / `SummaryCliTest` / `InitCiTest` —— 相对路径排除、摘要文件、`--init-ci`
+- `ExcludeTest` / `SummaryCliTest` / `InitCiTest` / `ChangedFilesTest` / `SinceCliTest` —— 相对路径排除、摘要文件、`--init-ci`、`--since` 的改动文件计算
 
 改规则先改前三个目录。CI 还会用自己发布的 action 扫一遍 `samples/good`（必须通过）、
 `samples/bad`（必须失败）和 `samples/config-demo`（带着仓库配置也必须失败），确保「别人拿到
@@ -321,7 +344,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.6.1 && git push origin v0.6.1
+git tag v0.7.0 && git push origin v0.7.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

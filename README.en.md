@@ -238,7 +238,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--jobs N]
+         [--baseline-stats] [--summary <file>] [--jobs N] [--since <ref>]
          [--explain LLM001] [--list-rules] <path...>
 
   --format        text (default, for humans) / json / github (Actions annotations) / sarif
@@ -257,6 +257,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --baseline-stats print how many baseline entries remain per rule and which are fixed
   --summary       write a Markdown summary to a file (great for job step summaries)
   --jobs          how many files to scan at once: default CPU count (max 8), 1 = sequential
+  --since         only scan files changed since this git ref, e.g. origin/main or HEAD~1
   --explain       level, framework, rationale and suppression for one rule
 ```
 
@@ -264,6 +265,28 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
 `target/` and `build/`. Files are parsed in parallel (up to 8 threads by default) while the output
 order stays identical to serial runs; add `--jobs 1` on a busy machine or to reproduce a specific
 order.
+
+### Scanning only what changed
+
+No need to rescan the whole repo on every PR. `--since` scans only the files touched since that ref
+forked off — uncommitted edits and untracked new files included:
+
+```bash
+llm-lint --since origin/main src/main/java
+llm-lint --since origin/main          # no path: everything that changed in the repo
+```
+
+Any ref works: `origin/main`, `HEAD~1`, a tag. If no Java file changed, it exits 0 without noise.
+With the Action:
+
+```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0          # --since compares against the base branch, so fetch history
+- uses: pgy763/llm-lint@v1
+  with:
+    since: origin/${{ github.base_ref }}
+```
 
 ### This line really is fine
 
@@ -344,7 +367,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.6.1 && git push origin v0.6.1
+git tag v0.7.0 && git push origin v0.7.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a
