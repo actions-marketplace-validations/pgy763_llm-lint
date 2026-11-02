@@ -53,6 +53,16 @@ jobs:
 
       - name: v1 指针挪到这个版本
         run: |
+          # 0.x 和 1.x 都指向 v1（README 里一直写 @v1）；2.0 以后别再动它，
+          # 否则 @v1 的用户会被静默升到不兼容的大版本。
+          major="${GITHUB_REF_NAME%%.*}"
+          case "$major" in
+            v0|v1) ;;
+            *)
+              echo "::notice::${GITHUB_REF_NAME} 的主版本是 ${major}，不动 v1 指针；要给 @v1 用户留 1.x 就手工处理"
+              exit 0
+              ;;
+          esac
           git tag -f v1 "$GITHUB_REF_NAME"
           git push -f origin "refs/tags/v1"
 
