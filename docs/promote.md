@@ -49,11 +49,11 @@ not available` 的人才是真正在踩坑的人——而且数量多一个数�
      (Java): model calls in transactions, shared chat memory, SSE timeouts, hard-coded keys.
    ```
 
-2. **手册站点反向导流**（最强的一条）：`llm-dev-pitfalls` 每篇文章末尾加一句
-
-   > 配套检查器：`llm-lint` 能一条命令把这篇文章里的坑扫出来 —— https://github.com/pgy763/llm-lint
-
-   手册的搜索流量已经存在，把它导到工具上，比从零做 SEO 快得多。
+2. **手册站点反向导流**（最强的一条，已完成）：`llm-dev-pitfalls` 里六个能对上规则的 Java 坑
+   ——事务里调模型、共用 ChatMemory、注入 ChatClient、SSE 30 秒断开、WebFlux 里 block、SSE 中文
+   乱码——文章末尾各加了一行指向对应规则（LLM001–LLM006，commit `f98defe`）。剩下的 Python/RAG
+   文章暂时没有对应规则；等规则扩到那边再补。手册的搜索流量已经存在，把它导到工具上，比从零
+   做 SEO 快得多。
 
 3. **Show HN**：`Show HN: llm-lint – static analysis for Spring AI / LangChain4j code`
    正文只讲一件事：上线后才发现的 15 个坑，以及为什么它不用 classpath、不联网。
