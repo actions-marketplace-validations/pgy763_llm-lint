@@ -49,7 +49,7 @@ fail-on: error
 
 ## 配置长什么样
 
-顶层只认五个键。多写一个键会直接报错，而不是被静默忽略——配置文件里打错的键，比没有配置更危险。
+顶层只认六个键。多写一个键会直接报错，而不是被静默忽略——配置文件里打错的键，比没有配置更危险。
 
 | 键 | 必填 | 值 | 说明 |
 | --- | --- | --- | --- |
@@ -58,6 +58,7 @@ fail-on: error
 | `exclude` | 否 | 列表，或逗号分隔的字符串 | 不扫的路径，规则同 `--exclude`。 |
 | `fail-on` | 否 | `error` / `warning` / `never` | 什么级别让退出码变成 1。默认 `error`。 |
 | `min-severity` | 否 | `info` / `warning` / `error` | 低于这个级别的不报也不计。默认 `info`。 |
+| `baseline` | 否 | 路径字符串 | 存量问题清单，相对配置文件所在目录。写了就只报清单之外的新问题。 |
 
 ### rules
 
@@ -81,6 +82,23 @@ rules:
 
 大小写不敏感，`llm007: Error` 也行。**没写的规则一律跟随默认**——这是有意的，理由见
 [只记差异](#只记差异)。
+
+### baseline
+
+```yaml
+version: 1
+baseline: .llm-lint.baseline
+```
+
+存量项目第一次接入时，先把现状存成清单（仓库里提交一份），之后只拦新问题：
+
+```bash
+java -jar llm-lint.jar --save-baseline .llm-lint.baseline --fail-on never src/main/java
+```
+
+- 相对路径按**配置文件所在目录**算（不是当前目录），所以从子目录里跑也指得对。
+- 命令行 `--baseline` 优先于这里；`--save-baseline` 总是写到命令行给的那个文件。
+- 清单格式、匹配规则、怎么更新见 **[baseline.md](baseline.md)**。
 
 ### exclude
 

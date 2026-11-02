@@ -91,6 +91,36 @@ jobs:
             exit 1
           fi
 
+      - name: 自检 —— 基线只放行旧问题，新犯的照样拦
+        run: |
+          work=$(mktemp -d)
+          mkdir -p "$work/src"
+          cp samples/bad/*.java "$work/src/"
+          jar="$GITHUB_WORKSPACE/target/llm-lint.jar"
+          # 第一次：把 15 条旧问题存进基线，这次本身不失败
+          java -jar "$jar" --save-baseline "$work/base.txt" --fail-on never "$work/src" > /dev/null
+          # 旧代码不动，应该干干净净
+          java -jar "$jar" --baseline "$work/base.txt" --format json "$work/src" > "$work/after.json"
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d==[], d" "$work/after.json"
+          # 新写的代码又犯一次同样的错：必须只报这一条，且退出 1
+          cp samples/bad/LLM010_HardcodedKey.java "$work/src/LLM010_Again.java"
+          set +e
+          java -jar "$jar" --baseline "$work/base.txt" --format json "$work/src" > "$work/again.json"
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "基线之外的新问题应该让退出码是 1，实际是 $code"
+            exit 1
+          fi
+          python3 - <<PY
+          import json
+          data = json.load(open("$work/again.json", encoding="utf-8"))
+          assert len(data) == 1, f"应该只剩新犯的那一条，实际 {data}"
+          assert data[0]["ruleId"] == "LLM010", data
+          assert "LLM010_Again.java" in data[0]["file"], data
+          print("baseline ok")
+          PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: llm-lint-jar

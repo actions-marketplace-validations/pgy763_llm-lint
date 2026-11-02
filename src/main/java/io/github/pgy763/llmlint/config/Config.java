@@ -23,24 +23,26 @@ import java.util.Set;
 public final class Config {
 
     /** 没有配置文件时用的空配置：什么都不改。 */
-    public static final Config EMPTY = new Config(null, Map.of(), List.of(), null, null);
+    public static final Config EMPTY = new Config(null, Map.of(), List.of(), null, null, null);
 
     private static final Set<String> TOP_LEVEL_KEYS =
-            Set.of("version", "rules", "exclude", "fail-on", "min-severity");
+            Set.of("version", "rules", "exclude", "fail-on", "min-severity", "baseline");
 
     private final Path file;
     private final Map<String, RuleLevel> levels;
     private final List<String> exclude;
     private final String failOn;
     private final String minSeverity;
+    private final String baseline;
 
     private Config(Path file, Map<String, RuleLevel> levels, List<String> exclude,
-                   String failOn, String minSeverity) {
+                   String failOn, String minSeverity, String baseline) {
         this.file = file;
         this.levels = Map.copyOf(levels);
         this.exclude = List.copyOf(exclude);
         this.failOn = failOn;
         this.minSeverity = minSeverity;
+        this.baseline = baseline;
     }
 
     /** 配置来自哪个文件；没有配置文件时是 null。 */
@@ -61,6 +63,11 @@ public final class Config {
     /** 配置里写了 {@code min-severity} 就用它，否则用默认的 info。 */
     public String minSeverityOrDefault() {
         return minSeverity == null ? "info" : minSeverity;
+    }
+
+    /** 配置里指定的基线文件（相对配置文件所在目录）；没写就是 null。 */
+    public String baseline() {
+        return baseline;
     }
 
     /** 这条规则被显式写过了吗；返回值可能是 OFF。 */
@@ -131,6 +138,9 @@ public final class Config {
         }
         sb.append("\nfail-on: ").append(effectiveFailOn).append('\n');
         sb.append("min-severity: ").append(effectiveMinSeverity).append('\n');
+        if (baseline != null) {
+            sb.append("baseline: \"").append(yamlEscape(baseline)).append("\"\n");
+        }
         return sb.toString();
     }
 
@@ -153,6 +163,7 @@ public final class Config {
         List<String> exclude = new ArrayList<>();
         String failOn = null;
         String minSeverity = null;
+        String baseline = null;
 
         Set<String> knownIds = new LinkedHashSet<>();
         for (Rule rule : known) {
@@ -163,7 +174,7 @@ public final class Config {
             if (!TOP_LEVEL_KEYS.contains(entry.key)) {
                 throw error(file, entry.line,
                         "不认识的键「" + entry.key + "」",
-                        "能写的只有 version / rules / exclude / fail-on / min-severity");
+                        "能写的只有 version / rules / exclude / fail-on / min-severity / baseline");
             }
             switch (entry.key) {
                 case "version" -> readVersion(entry, file);
@@ -171,10 +182,11 @@ public final class Config {
                 case "exclude" -> readExclude(entry, file, exclude);
                 case "fail-on" -> failOn = readChoice(entry, file, "error", "warning", "never");
                 case "min-severity" -> minSeverity = readChoice(entry, file, "info", "warning", "error");
+                case "baseline" -> baseline = readBaseline(entry, file);
                 default -> throw new IllegalStateException("unreachable: " + entry.key);
             }
         }
-        return new Config(file, levels, exclude, failOn, minSeverity);
+        return new Config(file, levels, exclude, failOn, minSeverity, baseline);
     }
 
     private static void readVersion(MiniYaml.Entry entry, Path file) throws ConfigException {
@@ -235,6 +247,12 @@ public final class Config {
         if (!pattern.isEmpty()) {
             exclude.add(pattern);
         }
+    }
+
+    /** 基线路径原样保留，由 Main 解释成相对配置文件所在目录的路径。 */
+    private static String readBaseline(MiniYaml.Entry entry, Path file) throws ConfigException {
+        String raw = scalar(entry, file, "baseline").trim();
+        return raw.isEmpty() ? null : raw;
     }
 
     private static String readChoice(MiniYaml.Entry entry, Path file, String... allowed)

@@ -4,6 +4,7 @@ import io.github.pgy763.llmlint.config.Config;
 import io.github.pgy763.llmlint.config.ConfigException;
 import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
+import io.github.pgy763.llmlint.engine.Baseline;
 import io.github.pgy763.llmlint.engine.LintEngine;
 import io.github.pgy763.llmlint.engine.LintResult;
 import io.github.pgy763.llmlint.engine.SourceCache;
@@ -81,6 +82,14 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--print-config", description = "打印实际生效的配置（含默认值）后退出")
     private boolean printConfig;
 
+    @Option(names = "--baseline", paramLabel = "<file>",
+            description = "只报不在这个基线里的问题；旧问题记在文件里，不卡 CI（见 docs/baseline.md）")
+    private Path baselineFile;
+
+    @Option(names = "--save-baseline", paramLabel = "<file>",
+            description = "把这次的结果记进基线文件（已有的保留），给存量项目开个头")
+    private Path saveBaseline;
+
     @Option(names = "--no-context", description = "text 格式下不打印源码行")
     private boolean noContext;
 
@@ -156,6 +165,45 @@ public final class Main implements Callable<Integer> {
                 .filter(f -> rank(f.severity()) >= rank(parseSeverity(minSeverityValue)))
                 .toList();
 
+        Path baselinePath = resolveBaseline(config);
+        Baseline baseline = Baseline.empty();
+        if (baselinePath != null) {
+            try {
+                baseline = Baseline.load(baselinePath);
+            } catch (IOException e) {
+                err.println("llm-lint: " + e.getMessage());
+                return 2;
+            }
+        }
+
+        if (saveBaseline != null) {
+            Baseline base = baseline;
+            try {
+                if (baselinePath == null && Files.isRegularFile(saveBaseline)) {
+                    // 只给了 --save-baseline 时，也把目标文件里已有的条目当底：重跑一次不该把
+                    // 「这次新增」从 0 又数成全部，更不该把别人存过的条目弄丢。
+                    base = Baseline.load(saveBaseline);
+                }
+                Baseline merged = base.plus(findings);
+                Baseline.write(merged, saveBaseline);
+                if (!quiet) {
+                    err.printf("llm-lint: 基线 %s（共 %d 条，这次新增 %d 条）%n",
+                            ConfigLoader.display(saveBaseline, Path.of("").toAbsolutePath()),
+                            merged.size(), merged.size() - base.size());
+                }
+            } catch (IOException e) {
+                err.println("llm-lint: 基线写不进去：" + e.getMessage());
+                return 2;
+            }
+        }
+
+        List<Finding> known = new ArrayList<>();
+        List<Finding> fresh = new ArrayList<>();
+        for (Finding finding : findings) {
+            (baseline.contains(finding) ? known : fresh).add(finding);
+        }
+        findings = List.copyOf(fresh);
+
         String output = switch (format.toLowerCase(Locale.ROOT)) {
             case "json" -> JsonReport.format(findings);
             case "github" -> GitHubReport.format(findings);
@@ -179,11 +227,22 @@ public final class Main implements Callable<Integer> {
                         ConfigLoader.display(config.file(), Path.of("").toAbsolutePath()),
                         config.summary());
             }
+            if (baselinePath != null) {
+                err.printf("llm-lint: 基线 %s（%d 条）%n",
+                        ConfigLoader.display(baselinePath, Path.of("").toAbsolutePath()),
+                        baseline.size());
+            }
             long errors = findings.stream().filter(f -> f.severity() == Severity.ERROR).count();
             long warnings = findings.stream().filter(f -> f.severity() == Severity.WARNING).count();
+            StringBuilder extra = new StringBuilder();
+            if (!known.isEmpty()) {
+                extra.append("，另有 ").append(known.size()).append(" 条在基线里");
+            }
+            if (result.suppressed() > 0) {
+                extra.append("，抑制 ").append(result.suppressed()).append(" 条");
+            }
             err.printf("llm-lint: %d 个问题（%d error / %d warning），扫了 %d 个文件%s%n",
-                    findings.size(), errors, warnings, result.filesScanned(),
-                    result.suppressed() > 0 ? "，抑制 " + result.suppressed() + " 条" : "");
+                    findings.size(), errors, warnings, result.filesScanned(), extra);
             if (result.filesSkipped() > 0) {
                 err.printf("llm-lint: 另有 %d 个文件解析失败被跳过%n", result.filesSkipped());
             }
@@ -206,6 +265,22 @@ public final class Main implements Callable<Integer> {
             return ConfigLoader.load(configFile, canonical);
         }
         return ConfigLoader.discover(Path.of("").toAbsolutePath(), paths, canonical);
+    }
+
+    /** 命令行 --baseline 最优先；其次配置文件里的 baseline（相对配置文件所在目录）。 */
+    private Path resolveBaseline(Config config) {
+        if (baselineFile != null) {
+            return baselineFile;
+        }
+        String fromConfig = config.baseline();
+        if (fromConfig == null) {
+            return null;
+        }
+        Path file = Path.of(fromConfig);
+        if (file.isAbsolute() || config.file() == null) {
+            return file;
+        }
+        return config.file().toAbsolutePath().getParent().resolve(file);
     }
 
     private Integer writeInit(PrintWriter out, PrintWriter err) {

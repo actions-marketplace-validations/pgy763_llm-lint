@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/pgy763/llm-lint/main/docs/llm-lint.schema.json",
+  "title": ".llm-lint.yml",
+  "description": "llm-lint 的按项目配置：规则开关、级别、排除路径、失败阈值、存量基线。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version"],
+  "properties": {
+    "version": {
+      "const": 1,
+      "description": "配置格式版本。目前只有 1；以后字段有破坏性变化才加。"
+    },
+    "rules": {
+      "type": "object",
+      "description": "按规则 ID 改级别。没写的规则跟随工具默认值，所以升级后能自动吃到默认值的改进。",
+      "propertyNames": {
+        "pattern": "^LLM0[0-9][0-9]$"
+      },
+      "additionalProperties": {
+        "enum": ["off", "on", "error", "warning", "info", "true", "false", "warn", "note"],
+        "description": "off 关掉这条；on / true 等于没写；error / warning / info 改级别。"
+      }
+    },
+    "exclude": {
+      "description": "不扫的路径，glob 或「包含这段子串」都算。可以和命令行的 --exclude 叠加（取并集）。",
+      "oneOf": [
+        {
+          "type": "string",
+          "description": "逗号分隔，例如 \"**/generated/**,**/vendor/**\""
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "每行一个，例如 - \"**/generated/**\""
+        }
+      ]
+    },
+    "fail-on": {
+      "enum": ["error", "warning", "never"],
+      "description": "什么级别才让退出码变 1。命令行显式传了 --fail-on 时以命令行为准。"
+    },
+    "min-severity": {
+      "enum": ["info", "warning", "error"],
+      "description": "低于这个级别的不报也不计。命令行显式传了 --min-severity 时以命令行为准。"
+    },
+    "baseline": {
+      "type": "string",
+      "description": "存量问题清单的路径（相对配置文件所在目录）。写了就只报基线之外的新问题，用 --save-baseline 生成。"
+    }
+  }
+}

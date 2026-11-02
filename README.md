@@ -93,6 +93,32 @@ java -jar llm-lint.jar --print-config  # 打印实际生效的配置（含默认
 差在哪。完整字段、YAML 子集限制和设计取舍见 **[docs/config.md](docs/config.md)**，
 `samples/config-demo/` 是一个能跑的样例（三条反例，配置后只剩一条 error）。
 
+## 存量项目：先记下旧问题，只拦新的
+
+新项目从第一天就干净；存量项目一接工具，先蹦出几百条。把现状存成一份基线、提交进仓库，
+之后 CI 只报清单之外的：
+
+```bash
+java -jar llm-lint.jar --save-baseline .llm-lint.baseline --fail-on never src/main/java
+java -jar llm-lint.jar --baseline .llm-lint.baseline src/main/java
+```
+
+写进 `.llm-lint.yml` 之后就不用每次带参数：
+
+```yaml
+version: 1
+baseline: .llm-lint.baseline
+```
+
+- 清单是纯文本，一行一条 `规则<TAB>文件<TAB>消息`，PR 的 diff 里能直接看出这次接受/新增了什么。
+- 匹配**不看行号列号**：上面插几行 import 不会让旧问题复活；消息变了（`maxTokens(128)` →
+  `256`）才算新问题，因为那确实改过了。
+- `--save-baseline` 只增不减（已有的条目会合并进来），删旧条目要自己改 diff——防止一次误操作
+  把历史债「洗白」。
+- `--baseline` 指向的文件不存在就退出 `2`，不会静默当成空清单：路径写错时几百条全红最难查。
+
+详见 **[docs/baseline.md](docs/baseline.md)**。
+
 ## 接进 CI
 
 最省事的是一个 composite action（它自己装 JDK、下 jar）：
@@ -160,6 +186,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--min-severity info|warning|error] [--disable LLM004,LLM009]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--print-config]
+         [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
@@ -172,6 +199,8 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --no-config     不读配置文件
   --init          在当前目录写一份带注释的 .llm-lint.yml
   --print-config  打印实际生效的配置（含默认值），可以存回当配置文件
+  --baseline      读这份基线，清单里的旧问题不再报（也见配置里的 baseline:）
+  --save-baseline 把这次的问题并进这份基线；已有条目一条不删
   --explain       一条规则的级别、框架、理由、抑制方式
 ```
 
@@ -238,6 +267,7 @@ java -jar target/llm-lint.jar --list-rules
 - `samples/good/LLM0NN_*.java` —— 同一处的正确写法，必须**一条都不报**
 - `samples/suppressed/` —— 验证 `// llm-lint:ignore` 只压掉指定的那一条
 - `samples/config-demo/` —— 三个反例 + 一份 `.llm-lint.yml`，配好之后必须**只剩一条** error
+- `BaselineTest` / `BaselineCliTest` —— 基线：旧问题存进去后退出 0，新犯的照样退出 1
 
 改规则先改前三个目录。CI 还会用自己发布的 action 扫一遍 `samples/good`（必须通过）、
 `samples/bad`（必须失败）和 `samples/config-demo`（带着仓库配置也必须失败），确保「别人拿到
@@ -248,7 +278,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.3.0 && git push origin v0.3.0
+git tag v0.4.0 && git push origin v0.4.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

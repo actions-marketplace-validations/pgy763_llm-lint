@@ -24,6 +24,10 @@ inputs:
     description: '低于这个级别不报：info | warning | error；留空就用配置文件或默认的 info'
     required: false
     default: ''
+  baseline:
+    description: '存量问题清单；留空就用配置文件里的 baseline:，见 docs/baseline.md'
+    required: false
+    default: ''
   version:
     description: 'llm-lint 版本；默认 latest'
     required: false
@@ -62,6 +66,7 @@ runs:
         LLM_LINT_FAIL_ON: ${{ inputs.fail-on }}
         LLM_LINT_DISABLE: ${{ inputs.disable }}
         LLM_LINT_MIN_SEVERITY: ${{ inputs.min-severity }}
+        LLM_LINT_BASELINE: ${{ inputs.baseline }}
         LLM_LINT_JAR: ${{ inputs.jar || format('{0}/llm-lint.jar', runner.temp) }}
       run: |
         # 没填的项不传，配置文件和工具默认值才有机会说话（命令行永远最优先）。
@@ -77,6 +82,9 @@ runs:
         fi
         if [ -n "$LLM_LINT_DISABLE" ]; then
           args+=(--disable "$LLM_LINT_DISABLE")
+        fi
+        if [ -n "$LLM_LINT_BASELINE" ]; then
+          args+=(--baseline "$LLM_LINT_BASELINE")
         fi
         args+=("$LLM_LINT_PATH")
         java -jar "$LLM_LINT_JAR" "${args[@]}"

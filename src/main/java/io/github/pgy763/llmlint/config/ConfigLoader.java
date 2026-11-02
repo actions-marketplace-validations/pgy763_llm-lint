@@ -73,6 +73,7 @@ public final class ConfigLoader {
     /** {@code --init} 写出去的那份：全是不生效的注释，用户按需去掉 #。 */
     public static String template(List<Rule> rules) {
         StringBuilder sb = new StringBuilder();
+        sb.append("# yaml-language-server: $schema=https://raw.githubusercontent.com/pgy763/llm-lint/main/docs/llm-lint.schema.json\n");
         sb.append("# .llm-lint.yml —— 仓库里的检查配置：开关、排除路径、级别都写在这里。\n");
         sb.append("# 放仓库根目录，CI 和本地读的是同一份，不用每次在流水线里手写参数。\n");
         sb.append("#\n");
@@ -90,6 +91,7 @@ public final class ConfigLoader {
         sb.append("  # - \"**/test/java/**\"\n");
         sb.append("\n# fail-on: error        # error（默认）/ warning / never\n");
         sb.append("# min-severity: info    # 低于这个级别的不报，也不计\n");
+        sb.append("# baseline: .llm-lint.baseline   # 存量问题的清单，写了就只报新问题，见 docs/baseline.md\n");
         return sb.toString();
     }
 
