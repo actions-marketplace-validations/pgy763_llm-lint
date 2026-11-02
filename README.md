@@ -97,6 +97,11 @@ llm-lint [--format text|json|github] [--fail-on error|warning|never]
 
 宁可少抓几个，也不要在别人的仓库里制造噪音。
 
+目前在这些真实代码上跑过，没有误报：
+
+- [hello-ai-backend](https://github.com/pgy763/hello-ai-backend) 的 71 个 Java 文件（含 Spring AI 调用与手写 SSE 推送）
+- [llm-gateway](https://github.com/pgy763/llm-gateway)、[prompt-ops](https://github.com/pgy763/prompt-ops) 的整个 `src/main/java`
+
 ## 它不是
 
 - **不是 AI 代码审查**：没有模型、没有网络请求，你的代码一个字节都不会离开本机。
