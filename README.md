@@ -39,6 +39,13 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 - 想改阈值：`--fail-on warning`（警告也卡）或 `--fail-on never`（只报告，不失败）。
 - 想知道某条规则为什么存在：`java -jar llm-lint.jar --explain LLM001`。
 
+不想先拿自己的项目试也行：`samples/bad/` 里是十五条反例，`java -jar llm-lint.jar samples/bad`
+会把它们全报出来；`samples/good/` 是改好的版本，一条都不报。
+
+两个框架都认：Spring AI 的 `ChatClient` / `ChatModel` / `ChatMemory`，LangChain4j 的
+`ChatLanguageModel` / `StreamingChatLanguageModel` / `AiServices` / `ChatMemoryProvider`，
+按类型名后缀判断，同一份代码里混着用也照扫。
+
 ## 接进 CI
 
 最省事的是一个 composite action（它自己装 JDK、下 jar）：
