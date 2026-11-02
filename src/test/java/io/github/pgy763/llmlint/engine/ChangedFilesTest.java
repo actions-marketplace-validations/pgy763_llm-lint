@@ -91,6 +91,25 @@ class ChangedFilesTest {
         assertTrue(failure.getMessage().contains("--since"), failure.getMessage());
     }
 
+    @Test
+    void 同时给路径时只留路径下的改动(@TempDir Path root) {
+        Path a = root.resolve("module-a/src/main/java/A.java").normalize();
+        Path b = root.resolve("module-b/src/main/java/B.java").normalize();
+
+        assertEquals(List.of(a),
+                ChangedFiles.under(List.of(a, b), List.of(root.resolve("module-a"))));
+        assertEquals(List.of(a, b), ChangedFiles.under(List.of(a, b), List.of(root)));
+        assertEquals(List.of(a, b), ChangedFiles.under(List.of(a, b), List.of()));
+    }
+
+    @Test
+    void 路径写成某个文件时只留它自己(@TempDir Path root) {
+        Path a = root.resolve("src/main/java/A.java").normalize();
+        Path b = root.resolve("src/main/java/B.java").normalize();
+
+        assertEquals(List.of(a), ChangedFiles.under(List.of(a, b), List.of(a)));
+    }
+
     // --- 小工具 ---------------------------------------------------------
 
     private static boolean gitWorks() {

@@ -187,6 +187,7 @@ public final class Main implements Callable<Integer> {
             err.println("看全部规则：llm-lint --list-rules");
             return 2;
         }
+        boolean explicitPaths = !paths.isEmpty();
         if (paths.isEmpty()) {
             // --since 不带路径时，默认看整个仓库的改动。
             paths = new ArrayList<>(List.of(Path.of(".")));
@@ -218,13 +219,21 @@ public final class Main implements Callable<Integer> {
         if (since != null) {
             try {
                 toScan = ChangedFiles.collect(Path.of(""), since);
+                if (explicitPaths) {
+                    // 用户既给了路径又给了 --since：只在「他圈的范围」里报改动，别把别的模块也拉进来。
+                    toScan = ChangedFiles.under(toScan, paths);
+                }
             } catch (ChangedFiles.GitException failure) {
                 err.println("llm-lint: " + failure.getMessage());
                 return 2;
             }
             if (toScan.isEmpty()) {
                 if (!quiet) {
-                    err.printf("llm-lint: --since %s 以来没有改动的 .java 文件%n", since);
+                    if (explicitPaths) {
+                        err.printf("llm-lint: --since %s 以来，这些路径下没有改动的 .java 文件%n", since);
+                    } else {
+                        err.printf("llm-lint: --since %s 以来没有改动的 .java 文件%n", since);
+                    }
                 }
                 return 0;
             }

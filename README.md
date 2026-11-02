@@ -259,7 +259,8 @@ llm-lint --since origin/main src/main/java
 llm-lint --since origin/main          # 不写路径，就是整个仓库的改动
 ```
 
-`origin/main` 换成 `HEAD~1` 或某个 tag 都行。一个改动的 Java 文件都没有时不报错，直接退出 0。
+`origin/main` 换成 `HEAD~1` 或某个 tag 都行。写了路径就只报这些路径下的改动（别的模块动了也不管），
+不写路径就是整个仓库。一个改动的 Java 文件都没有时不报错，直接退出 0。
 CI 里用 Action 的话：
 
 ```yaml
@@ -344,7 +345,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.7.0 && git push origin v0.7.0
+git tag v0.7.1 && git push origin v0.7.1
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

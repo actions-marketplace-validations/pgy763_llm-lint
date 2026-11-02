@@ -276,7 +276,8 @@ llm-lint --since origin/main src/main/java
 llm-lint --since origin/main          # no path: everything that changed in the repo
 ```
 
-Any ref works: `origin/main`, `HEAD~1`, a tag. If no Java file changed, it exits 0 without noise.
+Any ref works: `origin/main`, `HEAD~1`, a tag. Give a path and only changes under it are reported;
+give no path and the whole repo counts. If no Java file changed, it exits 0 without noise.
 With the Action:
 
 ```yaml
@@ -367,7 +368,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.7.0 && git push origin v0.7.0
+git tag v0.7.1 && git push origin v0.7.1
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

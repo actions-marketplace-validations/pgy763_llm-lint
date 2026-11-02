@@ -48,6 +48,31 @@ public final class ChangedFiles {
         return parse(tracked + "\n" + untracked, root);
     }
 
+    /**
+     * 只留下落在 {@code roots} 里的文件：{@code roots} 里的目录收其下所有文件，文件则只收它自己。
+     * 用户同时写了路径和 {@code --since} 时，用这个把「整个仓库的改动」收窄回他圈定的范围。
+     */
+    public static List<Path> under(List<Path> files, List<Path> roots) {
+        if (roots == null || roots.isEmpty() || files == null) {
+            return files;
+        }
+        List<Path> normalized = new ArrayList<>();
+        for (Path root : roots) {
+            normalized.add(root.toAbsolutePath().normalize());
+        }
+        List<Path> kept = new ArrayList<>();
+        for (Path file : files) {
+            Path abs = file.toAbsolutePath().normalize();
+            for (Path root : normalized) {
+                if (abs.equals(root) || abs.startsWith(root)) {
+                    kept.add(file);
+                    break;
+                }
+            }
+        }
+        return kept;
+    }
+
     /** 仓库根目录；不在仓库里时给一句人话。 */
     static Path repositoryRoot(Path dir) throws GitException {
         String output = run(dir, "rev-parse", "--show-toplevel");
