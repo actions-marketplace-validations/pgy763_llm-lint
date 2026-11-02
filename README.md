@@ -243,6 +243,24 @@ java -jar target/llm-lint.jar --list-rules
 `samples/bad`（必须失败）和 `samples/config-demo`（带着仓库配置也必须失败），确保「别人拿到
 jar 真的能用」。
 
+## 发版
+
+改完 `pom.xml` 的版本号，打 tag 就行：
+
+```bash
+git tag v0.3.0 && git push origin v0.3.0
+```
+
+`release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
+传上去，再把 `v1` 指针挪到这个 tag —— 所以 `uses: pgy763/llm-lint@v1` 一直拿到最新版，用户
+不用跟着改 workflow。
+
+jar 这个 asset 不能省：`action.yml` 默认从 `releases/latest/download/llm-lint.jar` 取工具本体，
+release 里没有它，别人装到的就是上一版。
+
+想上 [Marketplace](https://github.com/marketplace)：在 release 页面勾 *Publish this Action to
+the GitHub Marketplace*、选个分类。这一步只能手工点，勾完这个版本才会出现在 Actions 的搜索里。
+
 ## 相关
 
 - [llm-dev-pitfalls](https://pgy763.github.io/llm-dev-pitfalls/) —— 这份检查器背后的手册，51 条，每条都有报错原文

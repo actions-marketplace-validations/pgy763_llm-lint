@@ -1,0 +1,64 @@
+name: release
+
+# 打 tag 就是发版：v0.3.0 会建出同名 release，并把 jar 一起传上去。
+# action.yml 默认从 releases/latest/download/llm-lint.jar 取 jar，所以这个 asset 不能少。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: 测试并打包
+        run: mvn -B -ntp verify
+
+      - name: tag 和 jar 里的版本得对得上
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          actual="$(java -jar target/llm-lint.jar --version)"
+          echo "tag=${GITHUB_REF_NAME} jar=${actual}"
+          case "$actual" in
+            *" $version") ;;
+            *)
+              echo "::error::tag 是 ${GITHUB_REF_NAME}，jar 报的却是 ${actual}；先把 pom.xml 的版本改成 ${version} 再打 tag"
+              exit 1
+              ;;
+          esac
+
+      - name: 建 release，附上 jar
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" target/llm-lint.jar --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" target/llm-lint.jar \
+              --title "$GITHUB_REF_NAME" --generate-notes
+          fi
+
+      - name: v1 指针挪到这个版本
+        run: |
+          git tag -f v1 "$GITHUB_REF_NAME"
+          git push -f origin "refs/tags/v1"
+
+      - name: 确认 action 默认取的那个地址真的能下到
+        run: |
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/llm-lint.jar"
+          code="$(curl -fsSL -o /dev/null -w '%{http_code}' "$url")"
+          echo "${url} -> ${code}"
+          test "$code" = "200"
