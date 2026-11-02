@@ -149,6 +149,32 @@ class BaselineCliTest {
         assertEquals(0, stats.code, stats.combined());
         assertTrue(stats.err().contains("共 15 条，还在报 14 条"), stats.err());
         assertTrue(stats.err().contains("已经修好 1 条（LLM010 1）"), stats.err());
+        // 「按规则」只算还在报的：修好的 LLM010 不该再列出来
+        assertTrue(stats.err().contains("按规则：LLM001 1"), stats.err());
+        assertFalse(stats.err().contains("按规则：LLM010"), stats.err());
+    }
+
+    @Test
+    void 旧账全修完时说一句都不报了(@TempDir Path tmp) throws IOException {
+        Path src = copyBad(tmp);
+        Path baseline = tmp.resolve("llm-lint.baseline");
+        run("--save-baseline", baseline.toString(), "--fail-on", "never", src.toString());
+
+        for (String name : List.of("LLM001_TransactionalModelCall.java", "LLM002_SharedChatMemory.java",
+                "LLM003_ChatClientInjection.java", "LLM004_SseEmitterDefaultTimeout.java",
+                "LLM005_BlockInStreamingMethod.java", "LLM006_SseCharset.java", "LLM007_SmallMaxTokens.java",
+                "LLM008_SwallowedIoException.java", "LLM009_HttpClientWithoutTimeout.java",
+                "LLM010_HardcodedKey.java", "LLM011_ClientPerRequest.java", "LLM012_AiServicesPerRequest.java",
+                "LLM013_ModelCallInLoop.java", "LLM014_MemoryConstantId.java", "LLM015_ReactiveInTransaction.java")) {
+            Files.delete(src.resolve(name));
+        }
+
+        Run stats = run("--baseline", baseline.toString(), "--baseline-stats", src.toString());
+
+        assertEquals(0, stats.code, stats.combined());
+        assertTrue(stats.err().contains("共 15 条，还在报 0 条"), stats.err());
+        assertTrue(stats.err().contains("基线里的旧问题都不报了"), stats.err());
+        assertTrue(stats.err().contains("已经修好 15 条"), stats.err());
     }
 
     @Test

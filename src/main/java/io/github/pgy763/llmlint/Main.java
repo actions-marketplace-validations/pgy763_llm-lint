@@ -30,6 +30,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -264,11 +265,19 @@ public final class Main implements Callable<Integer> {
         if (baselineStats) {
             Map<String, Integer> stale = baseline.staleByRule(scanned);
             int staleCount = stale.values().stream().mapToInt(Integer::intValue).sum();
+            // 「按规则」要的是还在报的那些：总数减去已经修好的，不然刚修完的规则还会挂在
+            // 上面，看着像没修。
+            Map<String, Integer> remaining = new LinkedHashMap<>(baseline.byRule());
+            stale.forEach((ruleId, count) -> remaining.merge(ruleId, -count, Integer::sum));
+            remaining.values().removeIf(count -> count <= 0);
+
             err.printf("llm-lint: 基线 %s：共 %d 条，还在报 %d 条%n",
                     ConfigLoader.display(baselinePath, Path.of("").toAbsolutePath()),
                     baseline.size(), baseline.size() - staleCount);
-            if (baseline.size() > 0) {
-                err.printf("llm-lint:   按规则：%s%n", formatCounts(baseline.byRule()));
+            if (!remaining.isEmpty()) {
+                err.printf("llm-lint:   按规则：%s%n", formatCounts(remaining));
+            } else if (baseline.size() > 0) {
+                err.println("llm-lint:   基线里的旧问题都不报了");
             }
             if (staleCount > 0) {
                 err.printf("llm-lint:   已经修好 %d 条（%s）—— 确认无误就删掉这些行，基线才算真的收紧%n",
