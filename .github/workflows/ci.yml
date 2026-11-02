@@ -1,0 +1,43 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: 测试（内在含 samples 验收）
+        run: mvn -B -ntp verify
+
+      - name: 打包
+        run: mvn -B -ntp -DskipTests package
+
+      - name: 自检 —— samples/bad 必须被报出来
+        run: |
+          set +e
+          java -jar target/llm-lint.jar samples/bad
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "samples/bad 应该让退出码是 1，实际是 $code"
+            exit 1
+          fi
+
+      - name: 自检 —— samples/good 必须干净
+        run: java -jar target/llm-lint.jar --format github samples/good
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: llm-lint-jar
+          path: target/llm-lint.jar

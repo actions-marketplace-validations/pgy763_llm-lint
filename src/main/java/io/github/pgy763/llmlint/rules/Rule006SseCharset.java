@@ -1,0 +1,57 @@
+package io.github.pgy763.llmlint.rules;
+
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.expr.MemberValuePair;
+import com.github.javaparser.ast.expr.StringLiteralExpr;
+import io.github.pgy763.llmlint.AbstractRule;
+import io.github.pgy763.llmlint.Finding;
+import io.github.pgy763.llmlint.Severity;
+
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
+/** produces 写了 text/event-stream 却没写 charset：中文变乱码。 */
+public final class Rule006SseCharset extends AbstractRule {
+
+    @Override
+    public String id() {
+        return "LLM006";
+    }
+
+    @Override
+    public String title() {
+        return "produces 少了 charset";
+    }
+
+    @Override
+    public Severity severity() {
+        return Severity.WARNING;
+    }
+
+    @Override
+    public String docUrl() {
+        return doc("/java/SSE响应中文乱码");
+    }
+
+    @Override
+    public List<Finding> check(Path file, CompilationUnit cu) {
+        List<Finding> out = new ArrayList<>();
+        for (MemberValuePair pair : cu.findAll(MemberValuePair.class)) {
+            if (!pair.getValue().isStringLiteralExpr()) {
+                continue;
+            }
+            StringLiteralExpr literal = pair.getValue().asStringLiteralExpr();
+            String value = literal.asString();
+            if (!value.contains("text/event-stream") || value.contains("charset")) {
+                continue;
+            }
+            out.add(at(file, pair,
+                    "`" + pair.getNameAsString() + "` 声明了 `text/event-stream`，但没带 `charset`。"
+                            + "Spring 的 String 转换器默认 ISO-8859-1，中文会变成问号或乱码——"
+                            + "而且前端看起来「接口通了」，只是字不对。"
+                            + "写成 `MediaType.TEXT_EVENT_STREAM_VALUE + \";charset=UTF-8\"`。"));
+        }
+        return out;
+    }
+}
