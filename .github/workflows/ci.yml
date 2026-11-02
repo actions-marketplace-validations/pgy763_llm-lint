@@ -36,6 +36,7 @@ jobs:
 
       - name: 自检 —— samples/good 必须干净
         run: java -jar target/llm-lint.jar --format github samples/good
+          java -jar target/llm-lint.jar --format sarif samples/bad > /dev/null || true
 
       - name: 自检 —— json 必须能被解析
         run: |
@@ -43,8 +44,8 @@ jobs:
           python3 - <<'PY'
           import json
           data = json.load(open("findings.json", encoding="utf-8"))
-          assert len(data) == 10, f"应该 10 条，实际 {len(data)}"
-          assert {d["ruleId"] for d in data} == {f"LLM{i:03d}" for i in range(1, 11)}
+          assert len(data) == 15, f"应该 15 条，实际 {len(data)}"
+          assert {d["ruleId"] for d in data} == {f"LLM{i:03d}" for i in range(1, 16)}
           print("json ok")
           PY
 

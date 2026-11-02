@@ -17,5 +17,18 @@ public interface Rule {
     /** 手册里对应的那一条，找不到原文就指到分类首页。 */
     String docUrl();
 
+    /**
+     * 这块坑主要出现在哪个框架上：spring-ai、langchain4j，或者 both。
+     * 只用于展示（--list-rules / --explain），不参与判断。
+     */
+    default String framework() {
+        return "both";
+    }
+
+    /** 一两句话说清「为什么这是问题」，--explain 会用它。 */
+    default String why() {
+        return "";
+    }
+
     List<Finding> check(Path file, CompilationUnit cu);
 }

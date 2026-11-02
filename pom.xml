@@ -6,7 +6,7 @@
 
   <groupId>io.github.pgy763</groupId>
   <artifactId>llm-lint</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <packaging>jar</packaging>
 
   <name>llm-lint</name>
@@ -75,6 +75,10 @@
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>io.github.pgy763.llmlint.Main</mainClass>
+                  <manifestEntries>
+                    <Implementation-Title>llm-lint</Implementation-Title>
+                    <Implementation-Version>${project.version}</Implementation-Version>
+                  </manifestEntries>
                 </transformer>
               </transformers>
               <filters>

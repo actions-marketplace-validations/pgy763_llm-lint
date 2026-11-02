@@ -43,6 +43,11 @@ public final class Rule005BlockInStreamingMethod extends AbstractRule {
     }
 
     @Override
+    public String why() {
+        return "响应式流要在事件循环里跑。block() 把线程占住，Netty 的少量线程很快耗尽；流已经被订阅，再 block 也拿不到完整结果。";
+    }
+
+    @Override
     public List<Finding> check(Path file, CompilationUnit cu) {
         List<Finding> out = new ArrayList<>();
         for (MethodDeclaration m : cu.findAll(MethodDeclaration.class)) {

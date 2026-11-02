@@ -10,6 +10,11 @@ import io.github.pgy763.llmlint.rules.Rule007SmallMaxTokens;
 import io.github.pgy763.llmlint.rules.Rule008SwallowedIoException;
 import io.github.pgy763.llmlint.rules.Rule009HttpClientWithoutTimeout;
 import io.github.pgy763.llmlint.rules.Rule010HardcodedKey;
+import io.github.pgy763.llmlint.rules.Rule011ClientPerRequest;
+import io.github.pgy763.llmlint.rules.Rule012AiServicesPerRequest;
+import io.github.pgy763.llmlint.rules.Rule013ModelCallInLoop;
+import io.github.pgy763.llmlint.rules.Rule014ChatMemoryConstantId;
+import io.github.pgy763.llmlint.rules.Rule015ReactiveInTransaction;
 
 import java.util.List;
 
@@ -30,6 +35,11 @@ public final class Rules {
                 new Rule007SmallMaxTokens(),
                 new Rule008SwallowedIoException(),
                 new Rule009HttpClientWithoutTimeout(),
-                new Rule010HardcodedKey());
+                new Rule010HardcodedKey(),
+                new Rule011ClientPerRequest(),
+                new Rule012AiServicesPerRequest(),
+                new Rule013ModelCallInLoop(),
+                new Rule014ChatMemoryConstantId(),
+                new Rule015ReactiveInTransaction());
     }
 }

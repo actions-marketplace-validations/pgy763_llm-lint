@@ -34,6 +34,11 @@ public final class Rule004SseEmitterDefaultTimeout extends AbstractRule {
     }
 
     @Override
+    public String why() {
+        return "new SseEmitter() 用的是容器默认超时（Tomcat 30 秒）。模型还没生成完，连接先被掐了，前端看到的是「回答到一半停住」。";
+    }
+
+    @Override
     public List<Finding> check(Path file, CompilationUnit cu) {
         List<Finding> out = new ArrayList<>();
         for (ObjectCreationExpr e : cu.findAll(ObjectCreationExpr.class)) {

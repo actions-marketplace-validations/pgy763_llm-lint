@@ -39,6 +39,11 @@ public final class Rule010HardcodedKey extends AbstractRule {
     }
 
     @Override
+    public String why() {
+        return "密钥一旦提交进 git 就永远在历史里。删掉那一行不够——clone 和 fork 都还带着它，只能先吊销再换。";
+    }
+
+    @Override
     public List<Finding> check(Path file, CompilationUnit cu) {
         List<Finding> out = new ArrayList<>();
         for (StringLiteralExpr literal : cu.findAll(StringLiteralExpr.class)) {

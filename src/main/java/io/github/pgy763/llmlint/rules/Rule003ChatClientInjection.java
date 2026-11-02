@@ -44,6 +44,11 @@ public final class Rule003ChatClientInjection extends AbstractRule {
     }
 
     @Override
+    public String why() {
+        return "Spring AI 的自动配置只注册 ChatClient.Builder 和 ChatModel，没有 ChatClient 这种 Bean。注入它启动就失败，报的还只是「找不到 Bean」。";
+    }
+
+    @Override
     public List<Finding> check(Path file, CompilationUnit cu) {
         boolean springBean = cu.findAll(ClassOrInterfaceDeclaration.class).stream()
                 .anyMatch(c -> !c.isInterface()

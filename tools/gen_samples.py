@@ -1,4 +1,4 @@
-"""生成 samples/bad 与 samples/good 二十个文件。
+"""生成 samples/bad 与 samples/good 三十个文件，加一个抑制样本。
 
 bad 里每个文件只该触发它文件名前缀那一条规则；good 里是同一处的正确写法。
 这两组文件是规则唯一的验收标准：不再需要 Spring AI 的 jar 就能跑。
@@ -402,6 +402,250 @@ public class LLM010_HardcodedKey {
 
     public String key() {
         return apiKey;
+    }
+}
+'''
+
+
+# ---------- LLM011 每次请求都新建 ChatClient ----------
+FILES["bad/LLM011_ClientPerRequest.java"] = '''package samples.bad;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class LLM011_ClientPerRequest {
+
+    private final ChatModel chatModel;
+
+    public LLM011_ClientPerRequest(ChatModel chatModel) {
+        this.chatModel = chatModel;
+    }
+
+    public String answer(String question) {
+        ChatClient client = ChatClient.create(chatModel);
+        return client.prompt().user(question).call().content();
+    }
+}
+'''
+
+FILES["good/LLM011_ClientPerRequest.java"] = '''package samples.good;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class LLM011_ClientPerRequest {
+
+    /** 建一次，全应用复用：连接池、TLS、序列化器都只初始化一次。 */
+    @Bean
+    public ChatClient chatClient(ChatModel chatModel) {
+        return ChatClient.create(chatModel);
+    }
+}
+'''
+
+# ---------- LLM012 每次请求都新建 AiServices ----------
+FILES["bad/LLM012_AiServicesPerRequest.java"] = '''package samples.bad;
+
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.service.AiServices;
+import org.springframework.stereotype.Service;
+
+@Service
+public class LLM012_AiServicesPerRequest {
+
+    private final ChatLanguageModel model;
+
+    public LLM012_AiServicesPerRequest(ChatLanguageModel model) {
+        this.model = model;
+    }
+
+    public Assistant assistant() {
+        return AiServices.create(Assistant.class, model);
+    }
+
+    interface Assistant {
+        String chat(String question);
+    }
+}
+'''
+
+FILES["good/LLM012_AiServicesPerRequest.java"] = '''package samples.good;
+
+import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.service.AiServices;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+@Configuration
+public class LLM012_AiServicesPerRequest {
+
+    @Bean
+    public Assistant assistant(ChatLanguageModel model) {
+        return AiServices.create(Assistant.class, model);
+    }
+
+    interface Assistant {
+        String chat(String question);
+    }
+}
+'''
+
+# ---------- LLM013 循环里逐个调模型 ----------
+FILES["bad/LLM013_ModelCallInLoop.java"] = '''package samples.bad;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+@Service
+public class LLM013_ModelCallInLoop {
+
+    private final EmbeddingModel embeddingModel;
+
+    public LLM013_ModelCallInLoop(EmbeddingModel embeddingModel) {
+        this.embeddingModel = embeddingModel;
+    }
+
+    public List<float[]> vectors(List<String> texts) {
+        List<float[]> out = new ArrayList<>();
+        for (String text : texts) {
+            out.add(embeddingModel.embed(text));
+        }
+        return out;
+    }
+}
+'''
+
+FILES["good/LLM013_ModelCallInLoop.java"] = '''package samples.good;
+
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.stereotype.Service;
+
+@Service
+public class LLM013_ModelCallInLoop {
+
+    private final EmbeddingModel embeddingModel;
+
+    public LLM013_ModelCallInLoop(EmbeddingModel embeddingModel) {
+        this.embeddingModel = embeddingModel;
+    }
+
+    /** 一次带走：N 条文本只有一次往返。 */
+    public List<float[]> vectors(List<String> texts) {
+        List<float[]> out = new ArrayList<>();
+        out.addAll(embeddingModel.embedAll(texts));
+        return out;
+    }
+}
+'''
+
+# ---------- LLM014 ChatMemoryProvider 写死 id ----------
+FILES["bad/LLM014_MemoryConstantId.java"] = '''package samples.bad;
+
+import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.memory.chat.ChatMemoryProvider;
+import org.springframework.stereotype.Service;
+
+@Service
+public class LLM014_MemoryConstantId {
+
+    private final ChatMemoryProvider memoryProvider;
+
+    public LLM014_MemoryConstantId(ChatMemoryProvider memoryProvider) {
+        this.memoryProvider = memoryProvider;
+    }
+
+    public ChatMemory memoryFor(String userId) {
+        return memoryProvider.get("default");
+    }
+}
+'''
+
+FILES["good/LLM014_MemoryConstantId.java"] = '''package samples.good;
+
+import dev.langchain4j.memory.ChatMemory;
+import dev.langchain4j.memory.chat.ChatMemoryProvider;
+import org.springframework.stereotype.Service;
+
+@Service
+public class LLM014_MemoryConstantId {
+
+    private final ChatMemoryProvider memoryProvider;
+
+    public LLM014_MemoryConstantId(ChatMemoryProvider memoryProvider) {
+        this.memoryProvider = memoryProvider;
+    }
+
+    /** id 从请求里来：每个会话一份记忆。 */
+    public ChatMemory memoryFor(String userId) {
+        return memoryProvider.get(userId);
+    }
+}
+'''
+
+# ---------- LLM015 事务里返回响应式流 ----------
+FILES["bad/LLM015_ReactiveInTransaction.java"] = '''package samples.bad;
+
+import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class LLM015_ReactiveInTransaction {
+
+    private final RowRepository rowRepository;
+
+    public LLM015_ReactiveInTransaction(RowRepository rowRepository) {
+        this.rowRepository = rowRepository;
+    }
+
+    @Transactional
+    public Flux<String> saveAll(List<String> rows) {
+        rowRepository.saveAll(rows);
+        return Flux.fromIterable(rows).map(String::toUpperCase);
+    }
+}
+'''
+
+FILES["good/LLM015_ReactiveInTransaction.java"] = '''package samples.good;
+
+import java.util.List;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class LLM015_ReactiveInTransaction {
+
+    private final RowRepository rowRepository;
+
+    public LLM015_ReactiveInTransaction(RowRepository rowRepository) {
+        this.rowRepository = rowRepository;
+    }
+
+    /** 事务里只做同步的事，提交后再拼流。 */
+    @Transactional
+    public void saveAll(List<String> rows) {
+        rowRepository.saveAll(rows);
+    }
+}
+'''
+
+# ---------- 抑制注释的验收样本 ----------
+FILES["suppressed/SuppressedSse.java"] = '''package samples.suppressed;
+
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+public class SuppressedSse {
+
+    public SseEmitter stream() {
+        // llm-lint:ignore LLM004
+        return new SseEmitter();
+    }
+
+    public String key() {
+        return "sk-proj-AbCdEf0123456789AbCdEf0123456789";
     }
 }
 '''

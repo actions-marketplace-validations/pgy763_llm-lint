@@ -45,6 +45,11 @@ public final class Rule009HttpClientWithoutTimeout extends AbstractRule {
     }
 
     @Override
+    public String why() {
+        return "没设超时的 HTTP 客户端默认等到天荒地老。对端不回，请求线程就一直挂着，最后是线程池先满。";
+    }
+
+    @Override
     public List<Finding> check(Path file, CompilationUnit cu) {
         List<Finding> out = new ArrayList<>();
         for (MethodDeclaration m : cu.findAll(MethodDeclaration.class)) {

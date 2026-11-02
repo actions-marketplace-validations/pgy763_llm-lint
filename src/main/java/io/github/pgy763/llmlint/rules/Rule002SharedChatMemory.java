@@ -39,6 +39,11 @@ public final class Rule002SharedChatMemory extends AbstractRule {
     }
 
     @Override
+    public String why() {
+        return "ChatMemory 里装的是对话。单例 Bean 只 new 一份，所有用户往里写，A 的提问就成了 B 的上下文——这类串话在压测里看不出来。";
+    }
+
+    @Override
     public List<Finding> check(Path file, CompilationUnit cu) {
         List<Finding> out = new ArrayList<>();
         for (ClassOrInterfaceDeclaration c : cu.findAll(ClassOrInterfaceDeclaration.class)) {

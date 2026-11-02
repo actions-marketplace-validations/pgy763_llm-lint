@@ -11,6 +11,9 @@ public final class JsonReport {
     }
 
     public static String format(List<Finding> findings) {
+        if (findings.isEmpty()) {
+            return "[]\n";
+        }
         StringBuilder sb = new StringBuilder("[\n");
         for (int i = 0; i < findings.size(); i++) {
             Finding f = findings.get(i);
@@ -19,6 +22,7 @@ public final class JsonReport {
                     .append("\"severity\":\"").append(f.severity().name()).append("\",")
                     .append("\"file\":\"").append(escape(f.file())).append("\",")
                     .append("\"line\":").append(f.line()).append(',')
+                    .append("\"column\":").append(f.column()).append(',')
                     .append("\"title\":\"").append(escape(f.title())).append("\",")
                     .append("\"message\":\"").append(escape(f.message())).append("\",")
                     .append("\"docUrl\":\"").append(escape(f.docUrl())).append("\"")

@@ -1,0 +1,385 @@
+# 规则
+
+十五条规则，每条都对应一个「上线之后才发现」的具体故障。规则是纯静态的：不需要联网、不需要
+API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型名的后缀判断这是不是模型调用。
+
+> 这套判断方式有意保守：**宁可漏报，不可乱报**。认不出来的（链式调用、跨文件推断、反射、
+> 配置类里拼出来的 Bean）一律不报。所以「0 个问题」只代表没命中这十五条模式，不代表代码没问题。
+
+| 编号 | 级别 | 框架 | 拦的是什么 |
+| --- | --- | --- | --- |
+| [LLM001](#llm001) | error | 通用 | `@Transactional` 里调模型，占着数据库连接等几秒 |
+| [LLM002](#llm002) | error | 通用 | 单例 Bean 里一份 `ChatMemory`，所有人共用 |
+| [LLM003](#llm003) | error | Spring AI | 让容器注入 `ChatClient`（它没有这个 Bean） |
+| [LLM004](#llm004) | error | 通用 | `new SseEmitter()` 用容器默认超时，30 秒断流 |
+| [LLM005](#llm005) | warning | 通用 | 流式方法里 `block()`，把事件循环占住 |
+| [LLM006](#llm006) | warning | 通用 | `produces = "text/event-stream"` 少了 charset |
+| [LLM007](#llm007) | warning | 通用 | `maxTokens` 太小，工具参数被截断 |
+| [LLM008](#llm008) | warning | 通用 | 空 catch 吞掉写 SSE 时的 `IOException` |
+| [LLM009](#llm009) | warning | 通用 | `@Bean` 建的 HTTP 客户端没配超时 |
+| [LLM010](#llm010) | error | 通用 | 硬编码的 `sk-…` / `AIza…` 密钥 |
+| [LLM011](#llm011) | error | 通用 | 每个请求现建 `ChatClient` / `ChatModel` |
+| [LLM012](#llm012) | error | LangChain4j | 每个请求现建 `AiServices` |
+| [LLM013](#llm013) | warning | 通用 | 循环里逐个调模型或向量库 |
+| [LLM014](#llm014) | error | LangChain4j | `ChatMemoryProvider` 用了写死的 id |
+| [LLM015](#llm015) | warning | 通用 | 事务方法返回 `Flux` / `Mono` |
+
+---
+
+<a id="llm001"></a>
+## LLM001 `@Transactional` 里调模型
+
+**级别** error · **框架** 通用 · **手册** [事务里调模型拖垮连接池](https://pgy763.github.io/llm-dev-pitfalls/java/事务里调模型拖垮连接池)
+
+```java
+// 会报
+@Transactional
+public String answer(String question) {
+    ChatResponse response = chatModel.call(new Prompt(question));
+    return response.getResult().getOutput().getText();
+}
+```
+
+改法：先把要查的查完、要写的写好，再提交事务；模型调用放在事务外面。确实需要「模型结果和
+数据一起落库」的，用编程式事务把范围缩到写库那几行。
+
+为什么：模型这一次要几秒，这几秒里数据库连接一直被这个线程占着、没还回池子。连接池只有
+几十个，并发一上来先报「拿不到连接」，而不是「模型慢」——排查方向很容易被带偏。
+
+判断范围：方法上或类上有 `@Transactional`，方法体里出现了声明类型以 `ChatClient`、`ChatModel`、
+`ChatLanguageModel`、`StreamingChatModel`、`EmbeddingModel`、`EmbeddingClient` 结尾的接收者。
+每个方法只报第一处。
+
+---
+
+<a id="llm002"></a>
+## LLM002 单例里共用一份 `ChatMemory`
+
+**级别** error · **框架** 通用 · **手册** [多用户共用一份 ChatMemory](https://pgy763.github.io/llm-dev-pitfalls/java/多用户共用一份ChatMemory)
+
+```java
+// 会报
+@Service
+public class ChatService {
+    private final ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(20);
+}
+```
+
+改法：按会话 id 从 `ChatMemoryProvider` / `ChatMemoryStore` 取，或者用
+`MessageChatMemoryAdvisor` 按会话隔离。
+
+为什么：`ChatMemory` 里装的是对话。单例 Bean 只 `new` 一份，就是全站一个会话——A 说过的名字、
+地址会出现在 B 的上下文里。这类问题在压测里完全看不出来，上线后第一个投诉的是用户。
+
+判断范围：`@Service` / `@Component` / `@Repository` / `@Controller` 这类单例 Bean 里，字段或
+构造参数的类型以 `ChatMemory` / `ChatMemoryStore` 结尾。
+
+---
+
+<a id="llm003"></a>
+## LLM003 让容器注入 `ChatClient`
+
+**级别** error · **框架** Spring AI · **手册** [注入 ChatClient 找不到 Bean](https://pgy763.github.io/llm-dev-pitfalls/java/注入ChatClient找不到Bean)
+
+```java
+// 会报：启动就是 NoSuchBeanDefinitionException
+@Autowired
+private ChatClient chatClient;
+```
+
+改法：注入 `ChatClient.Builder`，在构造里 `build()`；或者自己定义一个 `@Bean ChatClient`。
+
+为什么：Spring AI 的自动配置只注册 `ChatClient.Builder` 和 `ChatModel`，没有 `ChatClient`
+这种 Bean。这一点在文档里写着，但错误信息只说「找不到 Bean」，看名字又完全合理，很容易卡住。
+
+判断范围：字段或构造参数类型以 `ChatClient` 结尾，且带 `@Autowired` / `@Resource` / `@Inject`，
+或者出现在构造器参数里。自己 `build()` 出来的字段不报。
+
+---
+
+<a id="llm004"></a>
+## LLM004 `new SseEmitter()` 没设超时
+
+**级别** error · **框架** 通用 · **手册** [SSE 连接 30 秒断开](https://pgy763.github.io/llm-dev-pitfalls/java/SSE连接30秒断开)
+
+```java
+// 会报
+@GetMapping(value = "/chat", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+public SseEmitter stream(String q) {
+    SseEmitter emitter = new SseEmitter();
+    ...
+}
+```
+
+改法：`new SseEmitter(180_000L)`——按最长的一条回答给，别用默认值；真要无限就显式传 `0`，
+并且配上 `onTimeout` 收尾。
+
+为什么：无参构造用的是容器默认超时（Tomcat 是 30 秒）。模型还没生成完，连接先被掐了，
+前端看到的是「回答到一半停住」，接口本身却没有任何错误。
+
+---
+
+<a id="llm005"></a>
+## LLM005 流式方法里 `block()` / `collectList()`
+
+**级别** warning · **框架** 通用 · **手册** [WebFlux 里 block 流式结果](https://pgy763.github.io/llm-dev-pitfalls/java/WebFlux里block流式结果)
+
+```java
+// 会报
+public Flux<String> stream(String q) {
+    List<String> all = chatModel.stream(new Prompt(q))
+            .map(r -> r.getResult().getOutput().getText())
+            .collectList()
+            .block();
+    return Flux.fromIterable(all);
+}
+```
+
+改法：把 `Flux` 直接返回给框架，让它订阅；需要转换就在链上 `map`。非要在业务里处理完，
+用 `SseEmitter` 自己推，而不是把流收干。
+
+为什么：响应式流要在事件循环里跑。`block()` 把线程占住，Netty 的少量线程很快被耗尽；而且流
+已经被订阅过，再 `block` 拿到的也不是你以为的完整结果。
+
+判断范围：方法返回 `Flux` / `Mono` / `SseEmitter` / `StreamingResponseBody` / `ResponseBodyEmitter`，
+方法体里出现 `block` / `blockFirst` / `blockLast` / `collectList` / `collectMap` / `collect`。
+
+---
+
+<a id="llm006"></a>
+## LLM006 `produces` 少了 charset
+
+**级别** warning · **框架** 通用 · **手册** [SSE 响应中文乱码](https://pgy763.github.io/llm-dev-pitfalls/java/SSE响应中文乱码)
+
+```java
+// 会报
+@GetMapping(value = "/chat", produces = "text/event-stream")
+```
+
+改法：`produces = "text/event-stream;charset=UTF-8"`，或
+`MediaType.TEXT_EVENT_STREAM_VALUE + ";charset=UTF-8"`。
+
+为什么：不带 charset 时 Spring 按默认编码把 `String` 写出去，中文在浏览器里是问号。接口
+返回 200，抓包看字节也对，只有前端那一行是坏的。
+
+---
+
+<a id="llm007"></a>
+## LLM007 `maxTokens` 太小
+
+**级别** warning · **框架** 通用 · **本页**
+
+```java
+// 会报
+options.setMaxTokens(128);
+```
+
+改法：工具场景留 1024 以上；并且把「是否被截断」当成一种正常结果处理，而不是当解析 bug。
+
+为什么：`maxTokens` 是上限，不是目标。模型想调工具时参数就是一段 JSON，预算不够就写到一半
+被截断，客户端看到 `Unexpected end-of-input`，看着像 Jackson 的 bug，其实是预算不够。
+
+判断范围：`maxTokens` / `setMaxTokens` / `maxCompletionTokens` 的参数是字面量且不超过 256。
+
+---
+
+<a id="llm008"></a>
+## LLM008 空 catch 吞掉 `IOException`
+
+**级别** warning · **框架** 通用 · **手册** [客户端断开后还在写 SSE](https://pgy763.github.io/llm-dev-pitfalls/java/客户端断开后还在写SSE)
+
+```java
+// 会报
+try {
+    emitter.send(SseEmitter.event().data(chunk));
+} catch (IOException e) {
+    // 客户端断了？不管它
+}
+```
+
+改法：捕获后 `emitter.complete()` 并 `return`——连接已经没了，继续写只是白烧 token。
+
+为什么：空 catch 等于把「写失败」当成「写成功」。连接断了也看不出来，日志干干净净，用户那头
+停在半句。等你去查时，最像出问题的地方（模型）恰恰是最没问题的。
+
+判断范围：`catch` 的参数是 `IOException` / `Exception` / `Throwable`，catch 体为空，且 `try` 里
+有 `write` / `send` / `flush` / `flushBuffer` / `writeAndFlush`。
+
+---
+
+<a id="llm009"></a>
+## LLM009 `@Bean` 建的 HTTP 客户端没配超时
+
+**级别** warning · **框架** 通用 · **手册** [请求挂死：超时太长](https://pgy763.github.io/llm-dev-pitfalls/endpoint/请求挂死超时太长)
+
+```java
+// 会报
+@Bean
+public WebClient webClient() {
+    return WebClient.builder().baseUrl("https://api.openai.com").build();
+}
+```
+
+改法：`.clientConnector(new ReactorClientHttpConnector(HttpClient.create()
+.responseTimeout(Duration.ofSeconds(30))))`，RestTemplate 用
+`SimpleClientHttpRequestFactory` 设 `connectTimeout` / `readTimeout`。
+
+为什么：没设超时的客户端默认等到天荒地老。对端不回，请求线程就一直挂着，最后是线程池先满——
+看起来像「服务卡死」，其实是自己没给自己留后路。
+
+判断范围：`@Bean` 方法返回 `WebClient` / `RestClient` / `RestTemplate` / `HttpClient` /
+`OkHttpClient`，方法体里没有任何 `timeout` / `readTimeout` / `connectTimeout` / `callTimeout` /
+`responseTimeout` 调用。
+
+---
+
+<a id="llm010"></a>
+## LLM010 硬编码的 API key
+
+**级别** error · **框架** 通用 · **手册** [密钥提交进了 git 历史](https://pgy763.github.io/llm-dev-pitfalls/auth/密钥提交进了git历史)
+
+```java
+// 会报
+private static final String API_KEY = "sk-proj-AbCdEf0123456789";
+```
+
+改法：`System.getenv("LLM_API_KEY")` 或配置中心。已经提交过的，先吊销再换——删掉那一行不够。
+
+为什么：密钥一旦进了 git，就永远在历史里。`git rm` 只删了最新一版，clone 和 fork 都还带着；
+公开仓库上的爬虫几分钟内就会来扫。
+
+判断范围：字符串字面量里出现 `sk-` / `sk-proj-` / `sk-ant-` / `AIza` / `hf_`，且不含 `${`
+和 `***`（占位符不报）。
+
+---
+
+<a id="llm011"></a>
+## LLM011 每个请求都新建 `ChatClient` / `ChatModel`
+
+**级别** error · **框架** 通用 · **本页**
+
+```java
+// 会报
+public String answer(String question) {
+    ChatClient client = ChatClient.create(chatModel);
+    return client.prompt().user(question).call().content();
+}
+```
+
+改法：在 `@Bean` 方法里建一次，业务类注入复用。
+
+为什么：`ChatClient` / `ChatModel` / `ChatLanguageModel` 内部带着连接池、重试器和序列化器。
+每次请求现建，等于每个请求重开连接池、重做 TLS 握手；并发一高，线程和端口先于模型耗尽。
+
+判断范围：非 `@Bean` 的方法里，以客户端类型名（`ChatClient`、`ChatModel`、`ChatLanguageModel`、
+`EmbeddingModel` 等）为接收者的 `create(...)` 或 `builder()` 调用。`AiServices` 归 LLM012。
+
+---
+
+<a id="llm012"></a>
+## LLM012 每个请求都新建 `AiServices`
+
+**级别** error · **框架** LangChain4j · **本页**
+
+```java
+// 会报
+public Assistant assistant() {
+    return AiServices.create(Assistant.class, model);
+}
+```
+
+改法：在 `@Bean` 里建一个单例 `AiServices`，记忆按会话 id 从 `ChatMemoryProvider` 取。
+
+为什么：`AiServices` 把 memory、retriever、tools 一次性组装好。每请求建一次，等于每请求
+重新装配；更隐蔽的是它默认带的记忆会被所有请求共用，串话就从这里开始。
+
+---
+
+<a id="llm013"></a>
+## LLM013 循环里逐个调模型或向量库
+
+**级别** warning · **框架** 通用 · **本页**
+
+```java
+// 会报
+for (String text : texts) {
+    vectors.add(embeddingModel.embed(text));
+}
+```
+
+改法：能批量的一次带走（`embedAll(texts)`、一次查多个 id）；实在要逐条的，至少并发发出去
+再一起等。
+
+为什么：模型和向量库的耗时几乎全在网络往返上。循环里一次一条，10 条就是 10 次 RTT，延迟
+线性叠加，而批量接口往往一次就能带走。
+
+判断范围：`call` / `chat` / `generate` / `generateStream` / `stream` / `similaritySearch` /
+`search` / `embed` / `embedAll` / `embedForResponse` / `retrieve`，接收者是模型或向量库类型，
+且调用出现在 `for` / `for-each` / `while` / `do` 里，或者 `forEach` / `map` 这类流操作符的
+lambda 里。
+
+---
+
+<a id="llm014"></a>
+## LLM014 `ChatMemoryProvider` 用了写死的 id
+
+**级别** error · **框架** LangChain4j · **手册** [多用户共用一份 ChatMemory](https://pgy763.github.io/llm-dev-pitfalls/java/多用户共用一份ChatMemory)
+
+```java
+// 会报
+public ChatMemory memoryFor(String userId) {
+    return memoryProvider.get("default");
+}
+```
+
+改法：id 从请求里来（会话 id / userId），每个会话一条，用完按 TTL 清。
+
+为什么：这条和 LLM002 是一对——LLM002 管的是字段级单例，这条管的是「看起来按会话取、其实
+id 写死了」。代码形态上已经「隔离」了，实际还是全站一份。
+
+---
+
+<a id="llm015"></a>
+## LLM015 事务方法返回 `Flux` / `Mono`
+
+**级别** warning · **框架** 通用 · **本页**
+
+```java
+// 会报
+@Transactional
+public Flux<String> saveAll(List<String> rows) {
+    rowRepository.saveAll(rows);
+    return Flux.fromIterable(rows).map(String::toUpperCase);
+}
+```
+
+改法：事务里只做同步的事，提交之后再拼流；或者把事务边界放到 `Flux` 的订阅里，用
+`TransactionalOperator`。
+
+为什么：`@Transactional` 绑定的是「方法返回时」这件事，而 `Flux` 返回时什么都没发生——
+真正的订阅和数据库操作在方法外面、另一个线程上。事务注解看着生效了，回滚却没覆盖到。
+
+---
+
+## 抑制
+
+单行或上一行写注释即可：
+
+```java
+// llm-lint:ignore LLM004
+SseEmitter emitter = new SseEmitter();
+```
+
+- `// llm-lint:ignore` —— 压掉该行的全部问题
+- `// llm-lint:ignore LLM004,LLM009` —— 只压这几条
+- `// llm-lint:ignore-file` —— 整个文件不报（放在文件任意位置）
+
+被压掉的问题会计进统计行（`抑制 N 条`），不会让数字凭空消失。
+
+## 这些规则不做什么
+
+- 不做符号解析，不读依赖的 jar：类型靠**声明处的简单类名后缀**判断。`var`、链式返回、
+  方法返回值直接接下去的调用，一律认不出，也就一律不报。
+- 不做跨文件推断：`@Bean` 在 A 文件、注入在 B 文件，各自独立看。
+- 不检查配置（`application.yml`）、SQL、前端代码，也不联网探测。
+- 不判断「业务上该不该在事务里」——只看模式，看法在文档里，判断权在你。

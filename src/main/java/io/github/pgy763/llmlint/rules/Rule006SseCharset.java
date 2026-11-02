@@ -35,6 +35,11 @@ public final class Rule006SseCharset extends AbstractRule {
     }
 
     @Override
+    public String why() {
+        return "text/event-stream 不带 charset，Spring 按默认编码把 String 写出去，中文在浏览器里是问号，接口却是 200。";
+    }
+
+    @Override
     public List<Finding> check(Path file, CompilationUnit cu) {
         List<Finding> out = new ArrayList<>();
         for (MemberValuePair pair : cu.findAll(MemberValuePair.class)) {

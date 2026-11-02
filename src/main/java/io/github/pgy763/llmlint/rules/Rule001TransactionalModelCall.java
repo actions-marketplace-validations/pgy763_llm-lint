@@ -37,6 +37,11 @@ public final class Rule001TransactionalModelCall extends AbstractRule {
     }
 
     @Override
+    public String why() {
+        return "事务里等模型，等的这几秒数据库连接一直被这个线程占着。连接池只有几十个，并发一上来先报「拿不到连接」，而不是「模型慢」。";
+    }
+
+    @Override
     public List<Finding> check(Path file, CompilationUnit cu) {
         List<Finding> out = new ArrayList<>();
         Map<String, String> types = Ast.declaredTypes(cu);

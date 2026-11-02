@@ -2,18 +2,21 @@
 
 [![ci](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml)
 
-**扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那十个最贵的坑。**
+**扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那些最贵的坑。**
 
-它不跑测试、不连模型、不要 API key，只看代码。一条命令，几秒钟，告诉你哪一行的写法会在半夜出事。
+十五条规则，每一条都对应一个「上线之后才发现」的故障：事务里等模型把连接池拖干、所有人共用一份
+对话记忆、`new SseEmitter()` 三十秒断流、密钥进了 git 历史……
 
-那些坑的完整现场（报错原文、怎么复现、怎么改）在另一份手册里：<https://pgy763.github.io/llm-dev-pitfalls/>。这个工具就是那份手册的「检查器版本」。
+它不跑测试、不连模型、不要 API key、不需要项目的 classpath，只看源码。一条命令，几秒钟。
+
+那些坑的完整现场（报错原文、怎么复现、怎么改）在另一份手册里：<https://pgy763.github.io/llm-dev-pitfalls/>。
+这个工具就是那份手册的「检查器版本」——`samples/bad/` 里十五条反例，每条都能对上手册里的一个条目。
 
 ---
 
 ## 30 秒
 
 ```bash
-# 下载 jar（或自己打包，见文末）
 curl -L -o llm-lint.jar https://github.com/pgy763/llm-lint/releases/latest/download/llm-lint.jar
 
 java -jar llm-lint.jar src/main/java
@@ -23,16 +26,22 @@ java -jar llm-lint.jar src/main/java
 
 ```
 src/main/java/com/demo/OrderService.java
-  42  ERROR  LLM001  @Transactional 里调模型
-      `createOrder` 开着事务，里面调了 `ChatClient`。模型这一次要几秒，这几秒数据库连接一直没还回去——并发一上来，报的是「拿不到连接」，不是「模型慢」，排查方向很容易被带偏。把模型调用挪到事务外面，或者先查好数据再开事务。
+  42:20  error  LLM001  @Transactional 里调模型
+      42 |     ChatResponse r = chatClient.prompt().user(q).call().chatResponse();
+         |                     ^
+      `createOrder` 开着事务，里面调了模型。这几秒数据库连接一直没还回去——并发一上来，
+      报的是「拿不到连接」，不是「模型慢」，排查方向很容易被带偏。
       → https://pgy763.github.io/llm-dev-pitfalls/java/事务里调模型拖垮连接池
+llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 ```
 
-有 `ERROR` 时退出码是 `1`，可以直接卡住 CI。只有 `WARNING` 时退出码是 `0`。
+- 有 `error` 时退出码 `1`，可以直接卡住 CI；只有 `warning` 时退出码 `0`。
+- 想改阈值：`--fail-on warning`（警告也卡）或 `--fail-on never`（只报告，不失败）。
+- 想知道某条规则为什么存在：`java -jar llm-lint.jar --explain LLM001`。
 
 ## 接进 CI
 
-最省事的是一个 composite action（它自己会装 JDK、下 jar）：
+最省事的是一个 composite action（它自己装 JDK、下 jar）：
 
 ```yaml
 - uses: actions/checkout@v4
@@ -43,9 +52,18 @@ src/main/java/com/demo/OrderService.java
     # disable: LLM009       # 某条规则在你项目里是误报就关掉
 ```
 
-问题会直接标在 diff 的对应行上（用的是 GitHub Actions 注解格式）。
+问题会直接标在 diff 的对应行上（GitHub Actions 注解格式），不用翻日志。
 
-不想用 action 的话，直接下 jar：
+想让问题进仓库的 **Security → Code scanning** 面板：
+
+```yaml
+- run: java -jar llm-lint.jar --format sarif src/main/java > llm-lint.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: llm-lint.sarif
+```
+
+不用 action 的话，直接下 jar：
 
 ```yaml
 - uses: actions/setup-java@v4
@@ -57,35 +75,58 @@ src/main/java/com/demo/OrderService.java
     java -jar llm-lint.jar --format github src/main/java
 ```
 
-## 十条规则
+## 十五条规则
 
-| 编号 | 级别 | 抓什么 | 出事时你会看到 | 手册 |
+| 编号 | 级别 | 只看这个框架 | 拦的是什么 | 出事时你会看到 |
 | --- | --- | --- | --- | --- |
-| LLM001 | ERROR | `@Transactional` 方法里调模型 | 连接池打满，报「拿不到连接」 | [事务里调模型拖垮连接池](https://pgy763.github.io/llm-dev-pitfalls/java/事务里调模型拖垮连接池) |
-| LLM002 | ERROR | 单例 Bean 里放一份 `ChatMemory` | B 的对话里出现 A 的名字 | [多用户共用一份 ChatMemory](https://pgy763.github.io/llm-dev-pitfalls/java/多用户共用一份ChatMemory) |
-| LLM003 | ERROR | 让容器注入 `ChatClient` | 启动就 `NoSuchBeanDefinitionException` | [注入 ChatClient 找不到 Bean](https://pgy763.github.io/llm-dev-pitfalls/java/注入ChatClient找不到Bean) |
-| LLM004 | ERROR | `new SseEmitter()` 没给超时 | 回答到一半断了，容器默认 30 秒 | [SSE 连接 30 秒断开](https://pgy763.github.io/llm-dev-pitfalls/java/SSE连接30秒断开) |
-| LLM005 | WARNING | 返回 `Flux`/`SseEmitter` 的方法里 `block()`/`collectList()` | 前端等很久，然后一次性全出来 | [WebFlux 里 block 流式结果](https://pgy763.github.io/llm-dev-pitfalls/java/WebFlux里block流式结果) |
-| LLM006 | WARNING | `produces` 写了 `text/event-stream` 但没带 `charset` | 中文变问号，接口却是通的 | [SSE 响应中文乱码](https://pgy763.github.io/llm-dev-pitfalls/java/SSE响应中文乱码) |
-| LLM007 | WARNING | `maxTokens(...)` ≤ 256 | 工具参数被截断，报 `Unexpected end-of-input` | [工具消息顺序错](https://pgy763.github.io/llm-dev-pitfalls/endpoint/工具消息顺序错) |
-| LLM008 | WARNING | 空的 `catch (IOException)` 包着写流 | 客户端早断开，你还在写，日志里什么都没有 | [客户端断开后还在写 SSE](https://pgy763.github.io/llm-dev-pitfalls/java/客户端断开后还在写SSE) |
-| LLM009 | WARNING | `@Bean` 里造 HTTP 客户端却没配超时 | 上游不回，线程一直挂着 | [Reactor 超时截断流式](https://pgy763.github.io/llm-dev-pitfalls/java/Reactor超时截断流式) |
-| LLM010 | ERROR | 代码里写着 `sk-...` 这样的字面量 | 密钥进了 git 历史，删不掉了 | [密钥提交进了 git 历史](https://pgy763.github.io/llm-dev-pitfalls/auth/密钥提交进了git历史) |
+| LLM001 | error | 通用 | `@Transactional` 方法里调模型 | 连接池打满，报「拿不到连接」 |
+| LLM002 | error | 通用 | 单例 Bean 里放一份 `ChatMemory` | B 的对话里出现 A 的名字 |
+| LLM003 | error | Spring AI | 让容器注入 `ChatClient` | 启动就 `NoSuchBeanDefinitionException` |
+| LLM004 | error | 通用 | `new SseEmitter()` 没给超时 | 回答到一半断了，容器默认 30 秒 |
+| LLM005 | warning | 通用 | 流式方法里 `block()` / `collectList()` | 前端等很久，然后一次性全出来 |
+| LLM006 | warning | 通用 | `produces` 没带 `charset` | 中文变问号，接口却是通的 |
+| LLM007 | warning | 通用 | `maxTokens(...)` ≤ 256 | 工具参数被截断，报 `Unexpected end-of-input` |
+| LLM008 | warning | 通用 | 空 `catch (IOException)` 包着写流 | 客户端早断开，你还在写，日志里什么都没有 |
+| LLM009 | warning | 通用 | `@Bean` 造 HTTP 客户端却没配超时 | 上游不回，线程一直挂着 |
+| LLM010 | error | 通用 | 代码里写着 `sk-…` / `AIza…` 字面量 | 密钥进了 git 历史，删不掉了 |
+| LLM011 | error | 通用 | 每个请求现建 `ChatClient` / `ChatModel` | 高峰期线程和端口先于模型耗尽 |
+| LLM012 | error | LangChain4j | 每个请求现建 `AiServices` | 每请求重装配，记忆还串了 |
+| LLM013 | warning | 通用 | 循环里逐个调模型 / 向量库 | N 条数据 N 次往返，延迟线性叠加 |
+| LLM014 | error | LangChain4j | `ChatMemoryProvider` 用了写死的 id | 看着按会话隔离，其实全站一份 |
+| LLM015 | warning | 通用 | 事务方法返回 `Flux` / `Mono` | 注解看着生效，回滚没覆盖到 |
 
+每条的反例、改法、判断范围：**[docs/rules.md](docs/rules.md)**。
 `java -jar llm-lint.jar --list-rules` 随时能看这张表。
 
 ## 用法
 
 ```
-llm-lint [--format text|json|github] [--fail-on error|warning|never]
-         [--disable LLM004,LLM009] [--list-rules] <path...>
+llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
+         [--min-severity info|warning|error] [--disable LLM004,LLM009]
+         [--exclude "**/generated/**"] [--no-context] [--quiet]
+         [--explain LLM001] [--list-rules] <path...>
 
-  --format     text（默认，人看）/ json（脚本吃）/ github（Actions 注解）
-  --fail-on    error（默认）/ warning（警告也卡）/ never（只报告，不失败）
-  --disable    不跑的规则；某个规则在你项目里是误报就关掉它
+  --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
+  --fail-on       error（默认）/ warning（警告也卡）/ never（只报告，不失败）
+  --min-severity  低于这个级别的不报也不计
+  --disable       不跑的规则；某条规则在你项目里是误报就关掉它
+  --exclude       不扫的路径（glob），逗号分隔
+  --no-context    text 格式下不打印源码行
+  --explain       一条规则的级别、框架、理由、抑制方式
 ```
 
 `<path>` 可以是目录，也可以是单个 `.java`。目录会递归找 `.java`，跳过 `target/` 和 `build/`。
+
+### 某一行确实没有问题
+
+```java
+// llm-lint:ignore LLM004
+SseEmitter emitter = new SseEmitter();
+```
+
+- `// llm-lint:ignore` —— 压掉该行全部问题
+- `// llm-lint:ignore LLM004,LLM009` —— 只压这几条
+- `// llm-lint:ignore-file` —— 整个文件不报
 
 ## 误报这件事
 
@@ -93,41 +134,51 @@ llm-lint [--format text|json|github] [--fail-on error|warning|never]
 
 - 类型只在**本文件里声明得出来**的时候才判断（字段、参数、局部变量）。`getChatClient().prompt()` 这种拿不到类型的调用，不报。
 - 空 `catch` 只在它确实包着 `write`/`send`/`flush` 时报，纯业务逻辑的空 catch 不管。
+- `@Bean` 方法里建客户端不报——那正是推荐写法。
+- 自己 `build()` 出来的 `ChatClient` 字段不报 LLM003，只有「让容器注入」才报。
 - LLM009 认不出你在别处统一配的超时——如果配了，`--disable LLM009`。
+- 一开始还写过一条「`new SseEmitter(0L)` 没配 `onTimeout`」的规则，被自己的正例打回来了：
+  把超时关掉、靠心跳维持连接是常规做法。**删掉**，而不是加条件硬凑。
 
-宁可少抓几个，也不要在别人的仓库里制造噪音。
-
-目前在这些真实代码上跑过，没有误报：
+目前在这些真实代码上跑过，一条都没报：
 
 - [hello-ai-backend](https://github.com/pgy763/hello-ai-backend) 的 71 个 Java 文件（含 Spring AI 调用与手写 SSE 推送）
-- [llm-gateway](https://github.com/pgy763/llm-gateway)、[prompt-ops](https://github.com/pgy763/prompt-ops) 的整个 `src/main/java`
+- [llm-gateway](https://github.com/pgy763/llm-gateway)（45 个文件）、[prompt-ops](https://github.com/pgy763/prompt-ops)（20 个文件）的整个 `src/main/java`
 
 ## 它不是
 
 - **不是 AI 代码审查**：没有模型、没有网络请求，你的代码一个字节都不会离开本机。
-- **不需要 classpath**：不要求把 Spring AI 的 jar 给它，用的是语法树，不是编译结果。
+- **不是类型检查器**：不做符号解析，不读依赖的 jar，靠类型名后缀判断。
 - **不改代码**：只报告，不自动修。改法写在每条说明里，你自己判断。
 
 ## 局限
 
 - 只支持 Java 17 语法（Spring AI 2.x / LangChain4j 1.x 的主流写法）
-- 不做跨方法、跨文件的数据流分析，所以「把模型调用藏进一个 helper」它看不出来
-- 不是类型检查器：`var`、泛型、接口到实现的推断都不做
+- `var`、链式返回、跨方法/跨文件推断都不做，所以「把模型调用藏进 helper」它看不出来
+- 不查配置（`application.yml`）、SQL、前端代码；不联网
 - `Kotlin`、`Groovy` 不支持
 
-这些边界是故意的：一个能在任何 Java 项目里 `java -jar` 就跑的工具，比一个要配 classpath 的工具更容易被真的用起来。
+这些边界是故意的：一个能在任何 Java 项目里 `java -jar` 就跑的工具，比一个要配 classpath
+的工具更容易被真的用起来。
 
-## 自己打包
+## 自己打包 / 这套东西怎么验收
 
 ```bash
-mvn -B verify           # 编译 + 跑测试（含 samples 验收）
+mvn -B verify           # 编译 + 跑测试（含 samples 双向验收）
 mvn -B -DskipTests package
 java -jar target/llm-lint.jar --list-rules
 ```
 
 需要 **JDK 17+** 和 Maven。
 
-测试的验收标准在 `samples/`：`samples/bad/LLM00X_*.java` 每个文件必须**只**触发它自己那条规则，`samples/good/` 必须**一条都不报**。改规则先改这两个目录。
+`samples/` 是规则的验收标准，也是唯一的标准：
+
+- `samples/bad/LLM0NN_*.java` —— 每个文件必须**正好**报一条，且编号等于文件名前缀
+- `samples/good/LLM0NN_*.java` —— 同一处的正确写法，必须**一条都不报**
+- `samples/suppressed/` —— 验证 `// llm-lint:ignore` 只压掉指定的那一条
+
+改规则先改这三个目录。CI 还会用自己发布的 action 扫一遍 `samples/good`（必须通过）和
+`samples/bad`（必须失败），确保「别人拿到 jar 真的能用」。
 
 ## 相关
 

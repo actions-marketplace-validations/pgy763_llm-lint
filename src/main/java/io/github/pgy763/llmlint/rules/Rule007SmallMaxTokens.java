@@ -36,7 +36,12 @@ public final class Rule007SmallMaxTokens extends AbstractRule {
 
     @Override
     public String docUrl() {
-        return doc("/endpoint/工具消息顺序错");
+        return docInRepo() + "#llm007";
+    }
+
+    @Override
+    public String why() {
+        return "maxTokens 是上限不是目标。给 128 时模型想调工具，参数 JSON 写到一半就被截断，客户端看到 Unexpected end-of-input，看着像解析 bug。";
     }
 
     @Override

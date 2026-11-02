@@ -40,6 +40,11 @@ public final class Rule008SwallowedIoException extends AbstractRule {
     }
 
     @Override
+    public String why() {
+        return "catch 里什么都不做，等于把「写失败」当成「写成功」。连接断了也看不出来，日志干净，用户那头停在半句。";
+    }
+
+    @Override
     public List<Finding> check(Path file, CompilationUnit cu) {
         List<Finding> out = new ArrayList<>();
         for (CatchClause c : cu.findAll(CatchClause.class)) {

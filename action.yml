@@ -1,5 +1,5 @@
 name: 'llm-lint'
-description: '扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那十个最贵的坑'
+description: '扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那些最贵的坑'
 author: 'pgy763'
 branding:
   icon: 'shield'
@@ -16,6 +16,10 @@ inputs:
     default: 'error'
   disable:
     description: '不跑的规则，逗号分隔，如 LLM004,LLM009'
+  min-severity:
+    description: '低于这个级别不报：info | warning | error'
+    required: false
+    default: 'info'
     required: false
     default: ''
   version:
