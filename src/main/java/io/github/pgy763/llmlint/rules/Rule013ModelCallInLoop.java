@@ -63,7 +63,15 @@ public final class Rule013ModelCallInLoop extends AbstractRule {
             if (!EXPENSIVE_CALLS.contains(call.getNameAsString())) {
                 continue;
             }
-            String receiver = Ast.receiverType(call, types);
+            // 链式调用（chatClient.prompt().user(q).call()）的 scope 不是简单名字，
+            // 沿 scope 链找到根变量再查类型；认不出就不报。
+            String receiver = Ast.rootName(call.getScope().orElse(null));
+            if (receiver != null) {
+                receiver = types.get(receiver);
+            }
+            if (receiver == null) {
+                receiver = Ast.receiverType(call, types);
+            }
             if (!Ast.isModelType(receiver) && !Ast.isVectorType(receiver)) {
                 continue;
             }

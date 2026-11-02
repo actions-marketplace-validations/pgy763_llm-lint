@@ -6,6 +6,7 @@ import com.github.javaparser.ast.CompilationUnit;
 import io.github.pgy763.llmlint.engine.LintEngine;
 import io.github.pgy763.llmlint.engine.LintResult;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import picocli.CommandLine;
 
 import java.io.IOException;
@@ -154,6 +155,34 @@ class SamplesTest {
         assertEquals(0, cli.execute("--format", "json", "--min-severity", "warning",
                 SAMPLES.resolve("good").toString()));
         assertEquals("[]", out.toString().trim());
+    }
+
+    @Test
+    void 链式调用写在循环里也报LLM013(@TempDir Path dir) throws IOException {
+        Path file = dir.resolve("Chained.java");
+        Files.writeString(file, """
+                package demo;
+
+                import java.util.List;
+                import org.springframework.ai.chat.client.ChatClient;
+
+                public class Chained {
+                    private final ChatClient chatClient;
+
+                    public Chained(ChatClient chatClient) {
+                        this.chatClient = chatClient;
+                    }
+
+                    public void warmUp(List<String> questions) {
+                        for (String q : questions) {
+                            chatClient.prompt().user(q).call().content();
+                        }
+                    }
+                }
+                """);
+        List<Finding> findings = lint(file);
+        assertEquals(List.of("LLM013"), findings.stream().map(Finding::ruleId).toList(),
+                "链式调用（chatClient.prompt()...call()）的根变量是 chatClient，应该认出来");
     }
 
     @Test
