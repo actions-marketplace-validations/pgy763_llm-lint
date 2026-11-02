@@ -20,12 +20,14 @@ inputs:
     description: '低于这个级别不报：info | warning | error'
     required: false
     default: 'info'
-    required: false
-    default: ''
   version:
-    description: 'llm-lint 版本'
+    description: 'llm-lint 版本；默认 latest'
     required: false
     default: 'latest'
+  jar:
+    description: '已有的 llm-lint.jar 路径；填了就不再下载（给自己做自测时用）'
+    required: false
+    default: ''
 
 runs:
   using: 'composite'
@@ -36,6 +38,7 @@ runs:
         java-version: '17'
 
     - name: 下载 llm-lint
+      if: inputs.jar == ''
       shell: bash
       env:
         LLM_LINT_VERSION: ${{ inputs.version }}
@@ -53,9 +56,14 @@ runs:
         LLM_LINT_PATH: ${{ inputs.path }}
         LLM_LINT_FAIL_ON: ${{ inputs.fail-on }}
         LLM_LINT_DISABLE: ${{ inputs.disable }}
+        LLM_LINT_MIN_SEVERITY: ${{ inputs.min-severity }}
+        LLM_LINT_JAR: ${{ inputs.jar || format('{0}/llm-lint.jar', runner.temp) }}
       run: |
         args=(--format github --fail-on "$LLM_LINT_FAIL_ON" "$LLM_LINT_PATH")
+        if [ -n "$LLM_LINT_MIN_SEVERITY" ]; then
+          args+=(--min-severity "$LLM_LINT_MIN_SEVERITY")
+        fi
         if [ -n "$LLM_LINT_DISABLE" ]; then
           args+=(--disable "$LLM_LINT_DISABLE")
         fi
-        java -jar "$RUNNER_TEMP/llm-lint.jar" "${args[@]}"
+        java -jar "$LLM_LINT_JAR" "${args[@]}"

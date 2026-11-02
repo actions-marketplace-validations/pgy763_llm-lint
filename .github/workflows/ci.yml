@@ -36,7 +36,17 @@ jobs:
 
       - name: 自检 —— samples/good 必须干净
         run: java -jar target/llm-lint.jar --format github samples/good
-          java -jar target/llm-lint.jar --format sarif samples/bad > /dev/null || true
+
+      - name: 自检 —— sarif 必须是合法 json
+        run: |
+          java -jar target/llm-lint.jar --format sarif samples/bad > llm-lint.sarif || true
+          python3 - <<'PY'
+          import json
+          d = json.load(open("llm-lint.sarif", encoding="utf-8"))
+          assert d["version"] == "2.1.0"
+          assert len(d["runs"][0]["results"]) == 15
+          print("sarif ok")
+          PY
 
       - name: 自检 —— json 必须能被解析
         run: |
@@ -55,15 +65,25 @@ jobs:
           path: target/llm-lint.jar
 
   action:
-    name: 用自己发布的 action 扫自己
+    name: 用 action 扫自己（jar 用本仓库刚构建的）
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: 构建 jar
+        run: mvn -B -ntp -DskipTests package
 
       - name: 正例必须通过
         uses: ./
         with:
           path: samples/good
+          jar: target/llm-lint.jar
 
       - name: 反例必须被拦住
         id: bad
@@ -71,6 +91,7 @@ jobs:
         continue-on-error: true
         with:
           path: samples/bad
+          jar: target/llm-lint.jar
 
       - name: 确认上一步真的失败了
         if: steps.bad.outcome != 'failure'
