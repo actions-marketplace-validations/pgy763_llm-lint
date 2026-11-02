@@ -1,6 +1,7 @@
 # llm-lint
 
 [![ci](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml)
+[![Marketplace](https://img.shields.io/badge/Marketplace-llm--lint-purple)](https://github.com/marketplace/actions/llm-lint)
 
 English | [中文](README.md)
 
@@ -53,6 +54,36 @@ and reports nothing.
 Both frameworks are recognized: Spring AI's `ChatClient` / `ChatModel` / `ChatMemory` and
 LangChain4j's `ChatLanguageModel` / `StreamingChatLanguageModel` / `AiServices` / `ChatMemoryProvider`,
 matched by type-name suffix, so mixed codebases are fine.
+
+## Found this from an error message?
+
+Plenty of people arrive here by searching a stack trace. Each of these symptoms maps to one rule
+and a check you can run right now:
+
+| What you searched (or what the log says) | What it usually is | Rule |
+| --- | --- | --- |
+| `NoSuchBeanDefinitionException: ... ChatClient` | asking the container to inject `ChatClient`, which has no default bean | LLM003 |
+| `HikariPool ... Connection is not available, request timed out` with model calls in the log | waiting on the model inside `@Transactional`, holding the DB connection | LLM001 |
+| SSE stream dies after 30 seconds / `AsyncRequestTimeoutException` | `new SseEmitter()` without a timeout, container default is 30s | LLM004 |
+| User A's name shows up in user B's conversation | one shared `ChatMemory` in a singleton bean | LLM002 |
+| `Unexpected end-of-input` / truncated tool arguments | `maxTokens` too small, the function-call JSON is cut in half | LLM007 |
+| Chinese text comes back as `???` but the endpoint returns 200 | `produces` without `charset=UTF-8` | LLM006 |
+| Streaming endpoint spins, then everything arrives at once | `block()` / `collectList()` inside a streaming method | LLM005 |
+| Threads or ports run out under load, the model isn't even slow | `new ChatClient` / `AiServices` per request | LLM011 / LLM012 |
+| `sk-...` or `AIza...` found in git history | hard-coded API key | LLM010 |
+| Transactional method returns `Flux` / `Mono`, rollback never happens | reactive return type breaks the transaction boundary | LLM015 |
+| Client disconnected, server logs say nothing | empty `catch (IOException)` swallowing stream writes | LLM008 |
+| Upstream hangs, threads pile up | `@Bean` HTTP client without timeouts | LLM009 |
+| N records take N times as long | model / vector store called in a loop | LLM013 |
+| Memory looks per-session but is global | `ChatMemoryProvider` with a hard-coded id | LLM014 |
+
+One command, no CI needed:
+
+```bash
+java -jar llm-lint.jar src/main/java
+```
+
+Every finding carries the file, line, the reason, and the matching handbook entry.
 
 ## Pin the rules in the repository
 
@@ -313,7 +344,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.6.0 && git push origin v0.6.0
+git tag v0.6.1 && git push origin v0.6.1
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

@@ -3,6 +3,7 @@
 中文 | [English](README.en.md)
 
 [![ci](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml)
+[![Marketplace](https://img.shields.io/badge/Marketplace-llm--lint-purple)](https://github.com/marketplace/actions/llm-lint)
 
 **扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那些最贵的坑。**
 
@@ -47,6 +48,35 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 两个框架都认：Spring AI 的 `ChatClient` / `ChatModel` / `ChatMemory`，LangChain4j 的
 `ChatLanguageModel` / `StreamingChatLanguageModel` / `AiServices` / `ChatMemoryProvider`，
 按类型名后缀判断，同一份代码里混着用也照扫。
+
+## 搜着报错找过来的？
+
+不少人是从一条报错搜到这里的。下面这些症状，每条都对应一条规则和一个能跑的检查：
+
+| 你搜的那句话（或日志里的样子） | 大概率是什么 | 谁管它 |
+| --- | --- | --- |
+| `NoSuchBeanDefinitionException: ... ChatClient` | 想让容器注入 `ChatClient`，它没有默认 Bean | LLM003 |
+| `HikariPool ... Connection is not available, request timed out`，日志里同时有模型调用 | `@Transactional` 里等模型，数据库连接一直被占着 | LLM001 |
+| SSE 连接 30 秒后自己断 / `AsyncRequestTimeoutException` | `new SseEmitter()` 没给超时，容器默认 30 秒 | LLM004 |
+| 用户 A 的对话里出现用户 B 的名字 | 单例 Bean 里共用了一份 `ChatMemory` | LLM002 |
+| `Unexpected end-of-input` / 工具参数被截断 | `maxTokens` 太小，函数调用的 JSON 写了一半 | LLM007 |
+| 中文返回 `???`，接口状态却是 200 | `produces` 没写 `charset=UTF-8` | LLM006 |
+| 流式接口前端一直转圈，最后一次性全出来 | 流式方法里 `block()` / `collectList()` 了 | LLM005 |
+| 压测时线程/端口先耗尽，模型反而不慢 | 每个请求都在 `new ChatClient` / `AiServices` | LLM011 / LLM012 |
+| `sk-...` 或 `AIza...` 出现在 git 历史里 | 密钥写死在代码里 | LLM010 |
+| 事务方法返回 `Flux` / `Mono`，回滚没生效 | 响应式返回值让事务边界失效 | LLM015 |
+| 客户端早断开了，服务端日志里什么都没有 | 空 `catch (IOException)` 把写流的异常吞了 | LLM008 |
+| 上游不回，线程一直挂着 | `@Bean` 造的 HTTP 客户端没配超时 | LLM009 |
+| N 条数据，耗时正好是 N 倍 | 循环里逐个调模型 / 向量库 | LLM013 |
+| 看着按会话隔离，其实全站一份记忆 | `ChatMemoryProvider` 用了写死的 id | LLM014 |
+
+一条命令自查，不用接进 CI：
+
+```bash
+java -jar llm-lint.jar src/main/java
+```
+
+报出来的每一条都带文件、行号、为什么，以及手册里对应的条目。
 
 ## 把规则固定在仓库里
 
@@ -291,7 +321,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.6.0 && git push origin v0.6.0
+git tag v0.6.1 && git push origin v0.6.1
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

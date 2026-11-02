@@ -1,5 +1,5 @@
 name: 'llm-lint'
-description: '扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那些最贵的坑'
+description: 'Static analysis for Spring AI / LangChain4j: 15 rules for model calls in transactions, shared memory, SSE timeouts.'
 author: 'pgy763'
 branding:
   icon: 'shield'
