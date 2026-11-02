@@ -1,10 +1,10 @@
 # 规则
 
-十五条规则，每条都对应一个「上线之后才发现」的具体故障。规则是纯静态的：不需要联网、不需要
+十八条规则，每条都对应一个「上线之后才发现」的具体故障。规则是纯静态的：不需要联网、不需要
 API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型名的后缀判断这是不是模型调用。
 
 > 这套判断方式有意保守：**宁可漏报，不可乱报**。认不出来的（链式调用、跨文件推断、反射、
-> 配置类里拼出来的 Bean）一律不报。所以「0 个问题」只代表没命中这十五条模式，不代表代码没问题。
+> 配置类里拼出来的 Bean）一律不报。所以「0 个问题」只代表没命中这十八条模式，不代表代码没问题。
 
 表里的级别是**默认值**。某条规则在你项目里不合适——误报，或者你们的要求比它更严——写进仓库根的
 `.llm-lint.yml` 就行，不用改工具、也不用每次在 CI 里手写参数：见 [config.md](config.md)。
@@ -361,6 +361,69 @@ public Flux<String> saveAll(List<String> rows) {
 
 为什么：`@Transactional` 绑定的是「方法返回时」这件事，而 `Flux` 返回时什么都没发生——
 真正的订阅和数据库操作在方法外面、另一个线程上。事务注解看着生效了，回滚却没覆盖到。
+
+---
+
+<a id="llm016"></a>
+## LLM016 `@Tool` 方法返回 `Mono` / `Flux`
+
+**级别** error · **框架** 通用 · **本页**
+
+```java
+// 会报
+@Tool(description = "查订单状态")
+public Mono<String> orderStatus(String orderId) {
+    return Mono.just("shipped");
+}
+```
+
+改法：工具方法同步返回结果——要查库、要调 HTTP，就在方法里算完再 `return`，别把流交出去。
+
+为什么：模型调用工具时，框架要的是「能直接塞回上下文的结果」。返回 `Mono` 时没人替你订阅，
+轻则模型拿到 `Mono@1a2b` 这样的字符串，重则序列化失败、整轮对话 500。异步的价值在服务端并发，
+不在这一个返回值上。
+
+---
+
+<a id="llm017"></a>
+## LLM017 事务里查/写向量库
+
+**级别** error · **框架** 通用 · **本页**
+
+```java
+// 会报
+@Transactional
+public void ingest(String title, String body) {
+    vectorStore.add(List.of(new Document(body)));
+}
+```
+
+改法：向量写入/检索挪到事务外面，事务只包住数据库那一段。
+
+为什么：向量的写入和检索都要先算嵌入、再走一次网络。事务里等这几百毫秒，数据库连接一直被
+这个线程占着，并发一上来先报「拿不到连接」。这条和 LLM001 是同一类问题，只是向量调用看起来
+更无害，评审时更容易放过。
+
+---
+
+<a id="llm018"></a>
+## LLM018 流式接口没声明 `produces`
+
+**级别** warning · **框架** 通用 · **本页**
+
+```java
+// 会报
+@GetMapping("/tickets/stream")
+public Flux<String> stream() {
+    return Flux.just("a", "b");
+}
+```
+
+改法：`@GetMapping(value = "/tickets/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)`。
+
+为什么：返回 `Flux` 却没写 `produces`，Spring 会按 Jackson 的 JSON 转换器走：先把整个流收完，
+再一次性写出去；中间的代理也更容易把响应攒着。客户端看到的还是「等很久，然后全出来」——
+流式白开了，还多占了一路连接。
 
 ---
 

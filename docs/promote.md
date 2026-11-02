@@ -20,7 +20,7 @@ not available` 的人才是真正在踩坑的人——而且数量多一个数�
 1. **About 描述**（Settings → General，或仓库首页右上齿轮）改成英文，覆盖搜索词：
 
    ```
-   Static analysis for Spring AI / LangChain4j (Java): 15 rules for the failures that only show
+   Static analysis for Spring AI / LangChain4j (Java): 18 rules for the failures that only show
    up in production. CLI + GitHub Action, SARIF, baseline.
    ```
 
@@ -56,13 +56,13 @@ not available` 的人才是真正在踩坑的人——而且数量多一个数�
    做 SEO 快得多。
 
 3. **Show HN**：`Show HN: llm-lint – static analysis for Spring AI / LangChain4j code`
-   正文只讲一件事：上线后才发现的 15 个坑，以及为什么它不用 classpath、不联网。
+   正文只讲一件事：上线后才发现的 18 个坑，以及为什么它不用 classpath、不联网。
 
 4. **Reddit**：`r/java`、`r/SpringBoot`。标题用报错原文，比标题用项目名有效：
    `Why does my SSE stream die after 30 seconds? (and 14 other Spring AI mistakes I lint for)`
 
 5. **中文渠道**：V2EX / 掘金 / 知乎。标题示例：
-   「Spring AI 上线后最常见的 15 个坑，我写了个静态检查器，一条命令扫出来」。
+   「Spring AI 上线后最常见的 18 个坑，我写了个静态检查器，一条命令扫出来」。
 
 6. GitHub 上按 `awesome-llm`、`awesome-ai-tools` 之类的 topic 找还在维护的清单，按它们的
    贡献格式提 PR；一次只提一个，附一句为什么适合这个清单。

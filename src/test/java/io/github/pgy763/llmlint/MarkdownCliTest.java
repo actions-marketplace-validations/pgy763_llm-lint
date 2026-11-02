@@ -45,9 +45,9 @@ class MarkdownCliTest {
         assertEquals(1, run.code(), run.err());
         String text = Files.readString(file);
         assertTrue(text.startsWith("<!-- llm-lint -->\n"), text);
-        assertTrue(text.contains("**llm-lint：15 个问题**（8 error / 7 warning），扫了 15 个文件。"), text);
+        assertTrue(text.contains("**llm-lint：18 个问题**（10 error / 8 warning），扫了 18 个文件。"), text);
         assertTrue(text.contains("| 级别 | 规则 | 位置 | 问题 |"), text);
-        assertEquals(15, rows(text), text);
+        assertEquals(18, rows(text), text);
     }
 
     @Test

@@ -39,7 +39,7 @@ class SummaryCliTest {
 
         assertEquals(1, run.code(), run.err());
         String text = Files.readString(summary);
-        assertTrue(text.startsWith("## llm-lint\n\n**15 个问题**（"), text);
+        assertTrue(text.startsWith("## llm-lint\n\n**18 个问题**（"), text);
         assertTrue(text.contains("| LLM007 | warning | 1 |"), text);
         assertTrue(text.contains("| 规则 | 级别 | 条数 |"), text);
     }

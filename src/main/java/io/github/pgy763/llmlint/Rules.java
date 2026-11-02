@@ -15,6 +15,9 @@ import io.github.pgy763.llmlint.rules.Rule012AiServicesPerRequest;
 import io.github.pgy763.llmlint.rules.Rule013ModelCallInLoop;
 import io.github.pgy763.llmlint.rules.Rule014ChatMemoryConstantId;
 import io.github.pgy763.llmlint.rules.Rule015ReactiveInTransaction;
+import io.github.pgy763.llmlint.rules.Rule016ToolReturnsReactive;
+import io.github.pgy763.llmlint.rules.Rule017VectorInTransaction;
+import io.github.pgy763.llmlint.rules.Rule018StreamingWithoutProduces;
 
 import java.util.List;
 
@@ -40,6 +43,9 @@ public final class Rules {
                 new Rule012AiServicesPerRequest(),
                 new Rule013ModelCallInLoop(),
                 new Rule014ChatMemoryConstantId(),
-                new Rule015ReactiveInTransaction());
+                new Rule015ReactiveInTransaction(),
+                new Rule016ToolReturnsReactive(),
+                new Rule017VectorInTransaction(),
+                new Rule018StreamingWithoutProduces());
     }
 }
