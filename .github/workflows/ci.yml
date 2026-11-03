@@ -121,6 +121,32 @@ jobs:
           ! grep -q 'LLM018' "$work/after.json"
           echo "fix ok"
 
+      - name: 自检 —— junit / html 报告能被人和机器读，hook 能写出来
+        run: |
+          java -jar target/llm-lint.jar --format junit samples/bad > junit.xml || true
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          root = ET.parse("junit.xml").getroot()
+          assert root.tag == "testsuites", root.tag
+          cases = root.findall(".//testcase")
+          assert len(cases) == 18, f"应该 18 个 testcase，实际 {len(cases)}"
+          assert len(root.findall(".//failure")) == 10, "error 应该是 10 个 failure"
+          print("junit ok")
+          PY
+          java -jar target/llm-lint.jar --format html samples/bad > report.html || true
+          grep -q '<title>llm-lint</title>' report.html
+          grep -q '<table>' report.html
+          test "$(grep -c '<tr class=' report.html)" -eq 18
+          work="$(mktemp -d)"
+          git -C "$work" init -q
+          java -jar target/llm-lint.jar --init-hook "$work" > /dev/null
+          test -x "$work/.git/hooks/pre-commit"
+          grep -q "git diff --cached" "$work/.git/hooks/pre-commit"
+          if java -jar target/llm-lint.jar --init-hook "$work" 2>/dev/null; then
+            echo "第二次 --init-hook 不该成功"; exit 1
+          fi
+          echo "reports + hook ok"
+
       - name: 自检 —— 仓库里的配置能替代手写参数
         run: |
           cd samples/config-demo

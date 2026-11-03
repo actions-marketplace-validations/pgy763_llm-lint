@@ -13,7 +13,9 @@ import io.github.pgy763.llmlint.engine.SourceCache;
 import io.github.pgy763.llmlint.report.GitHubReport;
 import io.github.pgy763.llmlint.lang.Lang;
 import io.github.pgy763.llmlint.lang.Messages;
+import io.github.pgy763.llmlint.report.HtmlReport;
 import io.github.pgy763.llmlint.report.JsonReport;
+import io.github.pgy763.llmlint.report.JUnitReport;
 import io.github.pgy763.llmlint.report.MarkdownReport;
 import io.github.pgy763.llmlint.report.RuleCatalog;
 import io.github.pgy763.llmlint.report.SarifReport;
@@ -35,6 +37,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -60,7 +63,8 @@ public final class Main implements Callable<Integer> {
     private List<Path> paths = new ArrayList<>();
 
     @Option(names = "--format", defaultValue = "text",
-            description = "Output format: text (default), json, github (Actions annotations), sarif (Code Scanning)")
+            description = "Output format: text (default), json, github (Actions annotations), sarif (Code Scanning), "
+                    + "junit (JUnit XML for Jenkins/GitLab), html (standalone page)")
     private String format = "text";
 
     @Option(names = "--fail-on", defaultValue = "error",
@@ -100,6 +104,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--init-ci", arity = "0..1", paramLabel = "<dir>",
             description = "Write a GitHub Actions workflow under <dir>/.github/workflows/ (default: current directory)")
     private Path initCi;
+
+    @Option(names = "--init-hook", arity = "0..1", paramLabel = "<dir>",
+            description = "Write a pre-commit hook that lints staged .java files (default: current directory)")
+    private Path initHook;
 
     @Option(names = "--print-config", description = "Print the effective config (with defaults) and exit")
     private boolean printConfig;
@@ -166,6 +174,9 @@ public final class Main implements Callable<Integer> {
         }
         if (initCi != null) {
             return writeInitCi(out, err, initCi);
+        }
+        if (initHook != null) {
+            return writeInitHook(out, err, initHook);
         }
 
         List<Rule> canonical = Rules.all();
@@ -337,12 +348,14 @@ public final class Main implements Callable<Integer> {
                 case "json" -> JsonReport.format(findings);
                 case "github" -> GitHubReport.format(findings);
                 case "sarif" -> SarifReport.format(findings, rules);
+                case "junit" -> JUnitReport.format(findings);
+                case "html" -> HtmlReport.format(findings, result.filesScanned());
                 case "text", "default" -> TextReport.format(findings, new SourceCache(), !noContext);
                 default -> null;
             };
             if (output == null) {
-                err.println(Messages.f("不认识的 --format：%s（text / json / github / sarif）",
-                    "Unknown --format: %s (text / json / github / sarif)", format));
+                err.println(Messages.f("不认识的 --format：%s（text / json / github / sarif / junit / html）",
+                    "Unknown --format: %s (text / json / github / sarif / junit / html)", format));
                 return 2;
             }
             out.print(output);
@@ -518,6 +531,83 @@ public final class Main implements Callable<Integer> {
         out.println(Messages.t("想让规则开关跟着仓库走：llm-lint --init",
                 "To pin rule switches in the repo: llm-lint --init"));
         return 0;
+    }
+
+    private Integer writeInitHook(PrintWriter out, PrintWriter err, Path dir) {
+        Path git = dir.resolve(".git");
+        if (!Files.isDirectory(git)) {
+            err.println(Messages.f("%s 下面没有 .git；先在那里 git init，或者用 --init-hook <dir> 指到仓库根",
+                    "No .git under %s; run git init there first, or point --init-hook <dir> at the repo root",
+                    dir.toAbsolutePath()));
+            return 2;
+        }
+        Path target = git.resolve("hooks/pre-commit");
+        if (Files.exists(target)) {
+            err.println(Messages.f("%s 已经在了，不覆盖；要么把它接进现有 hook，要么先删掉再重写。",
+                    "%s already exists; chain it into the current hook or delete it first.", target));
+            return 2;
+        }
+        try {
+            Files.createDirectories(target.toAbsolutePath().getParent());
+            Files.writeString(target, hookTemplate(), StandardCharsets.UTF_8);
+            try {
+                Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("rwxr-xr-x"));
+            } catch (UnsupportedOperationException | IOException ignored) {
+                // Windows 上 chmod 不可用，git 照样按 shebang 执行。
+            }
+        } catch (IOException e) {
+            err.println(Messages.f("写不了 %s：%s", "Cannot write %s: %s", target, e.getMessage()));
+            return 2;
+        }
+        out.println(Messages.f("写好：%s（提交前只扫 staged 的 .java 文件，有 error 就拦下）",
+                "Wrote %s (it scans staged .java files and blocks the commit on errors)", target));
+        out.println(Messages.t(
+                "绕过一次用 git commit --no-verify；机器上找不到 llm-lint 时 hook 会自己跳过并提示，不会把人卡死。",
+                "Skip once with git commit --no-verify; if llm-lint is not installed the hook skips with a notice "
+                        + "instead of blocking the commit."));
+        return 0;
+    }
+
+    private static String hookTemplate() {
+        return Messages.lang() == Lang.ZH ? """
+                #!/bin/sh
+                # llm-lint pre-commit hook —— 由 `llm-lint --init-hook` 生成。
+                # 只扫这次 git add 的 .java 文件；有 error 级别的发现就拦下提交。
+                # 临时绕过一次：git commit --no-verify
+                # 也可以把 LLM_LINT 设成带参数的命令，比如 LLM_LINT="java -jar tools/llm-lint.jar"。
+
+                files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.java')
+                [ -z "$files" ] && exit 0
+
+                LLM_LINT="${LLM_LINT:-llm-lint}"
+                if ! command -v "${LLM_LINT%% *}" >/dev/null 2>&1; then
+                  echo "llm-lint: 找不到 ${LLM_LINT%% *}，跳过检查（装一份 llm-lint，或设置 LLM_LINT）" >&2
+                  exit 0
+                fi
+
+                # shellcheck disable=SC2086
+                $LLM_LINT --fail-on error $files
+
+                """ : """
+                #!/bin/sh
+                # llm-lint pre-commit hook - generated by `llm-lint --init-hook`.
+                # Scans only the .java files staged for this commit; error-level findings block it.
+                # Skip once with: git commit --no-verify
+                # LLM_LINT may include arguments, e.g. LLM_LINT="java -jar tools/llm-lint.jar".
+
+                files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.java')
+                [ -z "$files" ] && exit 0
+
+                LLM_LINT="${LLM_LINT:-llm-lint}"
+                if ! command -v "${LLM_LINT%% *}" >/dev/null 2>&1; then
+                  echo "llm-lint: '${LLM_LINT%% *}' not found, skipping (install llm-lint or set LLM_LINT)" >&2
+                  exit 0
+                fi
+
+                # shellcheck disable=SC2086
+                $LLM_LINT --fail-on error $files
+
+                """;
     }
 
     private static String ciTemplate() {
