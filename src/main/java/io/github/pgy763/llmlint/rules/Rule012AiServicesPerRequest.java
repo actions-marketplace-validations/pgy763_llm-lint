@@ -6,6 +6,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -29,7 +30,7 @@ public final class Rule012AiServicesPerRequest extends AbstractRule {
 
     @Override
     public String title() {
-        return "每次请求都新建 AiServices";
+        return Messages.t("每次请求都新建 AiServices", "New AiServices per request");
     }
 
     @Override
@@ -49,9 +50,15 @@ public final class Rule012AiServicesPerRequest extends AbstractRule {
 
     @Override
     public String why() {
-        return "AiServices.create(...) 会把 memory、ContentRetriever、tools 绑到生成的代理上。"
-                + "放在业务方法里，等于每个请求一份新记忆——上一句说的话下一句就忘，"
-                + "检索器和工具也要重新装配。代理本身线程安全，建一次就够。";
+        return Messages.t(
+                "AiServices.create(...) 会把 memory、ContentRetriever、tools 绑到生成的代理上。"
+                        + "放在业务方法里，等于每个请求一份新记忆——上一句说的话下一句就忘，"
+                        + "检索器和工具也要重新装配。代理本身线程安全，建一次就够。",
+                "AiServices.create(...) binds memory, ContentRetriever and tools onto the"
+                        + " generated proxy. Put in a business method, that means fresh memory per"
+                        + " request — what was said in the last turn is forgotten in the next, and"
+                        + " retrievers and tools are reassembled too. The proxy itself is"
+                        + " thread-safe; build it once.");
     }
 
     @Override
@@ -69,11 +76,17 @@ public final class Rule012AiServicesPerRequest extends AbstractRule {
                 if (root == null || !root.endsWith("AiServices")) {
                     continue;
                 }
-                out.add(at(file, call,
-                        "`" + m.getNameAsString() + "` 里现建 `" + root + "`。"
+                out.add(at(file, call, Messages.f(
+                        "`%s` 里现建 `%s`。"
                                 + "AiServices 会把 memory / retriever / tools 一起绑到新代理上："
                                 + "每个请求一份新记忆，多轮对话直接断片；工具和检索器也要重新装配。"
-                                + "在 `@Bean` 里建一个单例，记忆按会话 id 从 `ChatMemoryProvider` 取。"));
+                                + "在 `@Bean` 里建一个单例，记忆按会话 id 从 `ChatMemoryProvider` 取。",
+                        "`%s` builds `%s` on the spot. AiServices binds memory / retriever / tools"
+                                + " onto the new proxy: fresh memory per request cuts multi-turn"
+                                + " conversation short, and tools and retrievers are reassembled"
+                                + " each time. Build one singleton in `@Bean` and fetch memory per"
+                                + " session from `ChatMemoryProvider`.",
+                        m.getNameAsString(), root)));
                 break;
             }
         }

@@ -6,7 +6,7 @@
 
   <groupId>io.github.pgy763</groupId>
   <artifactId>llm-lint</artifactId>
-  <version>0.9.1</version>
+  <version>0.10.0</version>
   <packaging>jar</packaging>
 
   <name>llm-lint</name>

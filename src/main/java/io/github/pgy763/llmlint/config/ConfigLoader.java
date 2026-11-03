@@ -1,6 +1,7 @@
 package io.github.pgy763.llmlint.config;
 
 import io.github.pgy763.llmlint.Rule;
+import io.github.pgy763.llmlint.lang.Messages;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -58,7 +59,8 @@ public final class ConfigLoader {
 
     public static Config load(Path file, List<Rule> known) throws ConfigException {
         if (!Files.isRegularFile(file)) {
-            throw new ConfigException("找不到配置文件：" + file + "（--config 后面要跟文件路径）");
+            throw new ConfigException(Messages.f("找不到配置文件：%s（--config 后面要跟文件路径）",
+                    "Config file not found: %s (--config needs a file path)", file));
         }
         String text;
         try {
@@ -74,24 +76,42 @@ public final class ConfigLoader {
     public static String template(List<Rule> rules) {
         StringBuilder sb = new StringBuilder();
         sb.append("# yaml-language-server: $schema=https://raw.githubusercontent.com/pgy763/llm-lint/main/docs/llm-lint.schema.json\n");
-        sb.append("# .llm-lint.yml —— 仓库里的检查配置：开关、排除路径、级别都写在这里。\n");
-        sb.append("# 放仓库根目录，CI 和本地读的是同一份，不用每次在流水线里手写参数。\n");
+        sb.append(Messages.t(
+                "# .llm-lint.yml —— 仓库里的检查配置：开关、排除路径、级别都写在这里。\n",
+                "# .llm-lint.yml - the repo's lint config: rule switches, excluded paths, levels.\n"));
+        sb.append(Messages.t(
+                "# 放仓库根目录，CI 和本地读的是同一份，不用每次在流水线里手写参数。\n",
+                "# Keep it at the repo root so CI and your laptop read the same file.\n"));
         sb.append("#\n");
-        sb.append("# 优先级：命令行参数 > 这个文件 > 默认值。\n");
-        sb.append("# 级别：off（不跑）/ error（卡 CI）/ warning / info。\n");
+        sb.append(Messages.t(
+                "# 优先级：命令行参数 > 这个文件 > 默认值。\n",
+                "# Precedence: command line > this file > defaults.\n"));
+        sb.append(Messages.t(
+                "# 级别：off（不跑）/ error（卡 CI）/ warning / info。\n",
+                "# Levels: off (do not run) / error (fails CI) / warning / info.\n"));
         sb.append("\nversion: 1\n\nrules:\n");
         for (Rule rule : rules) {
             sb.append("  # ").append(rule.id()).append(' ').append(rule.title())
-                    .append("（默认 ").append(rule.severity().label()).append("）\n");
+                    .append(Messages.f("（默认 %s）", " (default %s)", rule.severity().label())).append('\n');
         }
-        sb.append("  # LLM009: off        # 超时在网关里统一配过了，这里是误报\n");
-        sb.append("  # LLM007: error      # 我们要求 maxTokens 至少 1024，默认的 warning 不够狠\n");
+        sb.append(Messages.t(
+                "  # LLM009: off        # 超时在网关里统一配过了，这里是误报\n",
+                "  # LLM009: off        # timeouts are set in the gateway, this one is a false positive\n"));
+        sb.append(Messages.t(
+                "  # LLM007: error      # 我们要求 maxTokens 至少 1024，默认的 warning 不够狠\n",
+                "  # LLM007: error      # we require maxTokens >= 1024, the default warning is not strict enough\n"));
         sb.append("\nexclude:\n");
         sb.append("  # - \"**/generated/**\"\n");
         sb.append("  # - \"**/test/java/**\"\n");
-        sb.append("\n# fail-on: error        # error（默认）/ warning / never\n");
-        sb.append("# min-severity: info    # 低于这个级别的不报，也不计\n");
-        sb.append("# baseline: .llm-lint.baseline   # 存量问题的清单，写了就只报新问题，见 docs/baseline.md\n");
+        sb.append(Messages.t(
+                "\n# fail-on: error        # error（默认）/ warning / never\n",
+                "\n# fail-on: error        # error (default) / warning / never\n"));
+        sb.append(Messages.t(
+                "# min-severity: info    # 低于这个级别的不报，也不计\n",
+                "# min-severity: info    # findings below this level are dropped entirely\n"));
+        sb.append(Messages.t(
+                "# baseline: .llm-lint.baseline   # 存量问题的清单，写了就只报新问题，见 docs/baseline.md\n",
+                "# baseline: .llm-lint.baseline   # accepted old findings; only new ones get reported, see docs/baseline.md\n"));
         return sb.toString();
     }
 

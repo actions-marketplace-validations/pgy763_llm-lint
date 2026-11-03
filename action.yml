@@ -7,45 +7,49 @@ branding:
 
 inputs:
   path:
-    description: '要扫的目录或 .java 文件'
+    description: 'Directory or .java file to scan'
     required: false
     default: 'src/main/java'
   config:
-    description: '仓库里的配置文件；默认从当前目录往上找 .llm-lint.yml'
+    description: 'Config file in the repo; defaults to discovering .llm-lint.yml upward from the workspace'
     required: false
     default: ''
   fail-on:
-    description: '什么级别算失败：error | warning | never；留空就用配置文件或默认的 error'
+    description: 'What counts as failure: error | warning | never; leave empty to use the config file or the default error'
     required: false
     default: ''
   disable:
-    description: '不跑的规则，逗号分隔，如 LLM004,LLM009；长期关掉建议写进 .llm-lint.yml'
+    description: 'Rules to skip, comma separated, e.g. LLM004,LLM009; prefer .llm-lint.yml for permanent switches'
   min-severity:
-    description: '低于这个级别不报：info | warning | error；留空就用配置文件或默认的 info'
+    description: 'Hide findings below this level: info | warning | error; leave empty to use the config file or the default info'
     required: false
     default: ''
   baseline:
-    description: '存量问题清单；留空就用配置文件里的 baseline:，见 docs/baseline.md'
+    description: 'Baseline of known issues; leave empty to use baseline: from the config file (see docs/baseline.md)'
     required: false
     default: ''
   jobs:
-    description: '同时扫几个文件；留空就按机器核数（最多 8），填 1 表示串行'
+    description: 'Files to scan in parallel; empty uses the CPU count (max 8), 1 means sequential'
     required: false
     default: ''
   since:
-    description: '只扫这个 git 引用以来改动的文件，如 origin/main（PR 里传目标分支，checkout 要 fetch-depth: 0）'
+    description: 'Only scan files changed since this git ref, e.g. origin/main (pass the base branch in PRs; checkout needs fetch-depth: 0)'
+    required: false
+    default: ''
+  lang:
+    description: 'Language for human-readable output: zh (default) or en'
     required: false
     default: ''
   pr-comment:
-    description: '在 PR 里留一条可更新的汇总评论（需要 permissions: pull-requests: write；默认 true）'
+    description: 'Post one sticky summary comment on pull requests (needs permissions: pull-requests: write; default true)'
     required: false
     default: 'true'
   version:
-    description: 'llm-lint 版本；默认 latest'
+    description: 'llm-lint version; defaults to latest'
     required: false
     default: 'latest'
   jar:
-    description: '已有的 llm-lint.jar 路径；填了就不再下载（给自己做自测时用）'
+    description: 'Path to an existing llm-lint.jar; when set the download step is skipped (useful for self-tests)'
     required: false
     default: ''
 
@@ -81,6 +85,7 @@ runs:
         LLM_LINT_BASELINE: ${{ inputs.baseline }}
         LLM_LINT_JOBS: ${{ inputs.jobs }}
         LLM_LINT_SINCE: ${{ inputs.since }}
+        LLM_LINT_LANG: ${{ inputs.lang }}
         LLM_LINT_JAR: ${{ inputs.jar || format('{0}/llm-lint.jar', runner.temp) }}
       run: |
         # 没填的项不传，配置文件和工具默认值才有机会说话（命令行永远最优先）。
@@ -107,6 +112,9 @@ runs:
         fi
         if [ -n "$LLM_LINT_SINCE" ]; then
           args+=(--since "$LLM_LINT_SINCE")
+        fi
+        if [ -n "$LLM_LINT_LANG" ]; then
+          args+=(--lang "$LLM_LINT_LANG")
         fi
         if [ -n "$LLM_LINT_PATH" ]; then
           args+=("$LLM_LINT_PATH")

@@ -3,6 +3,8 @@ package io.github.pgy763.llmlint.engine;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Fix;
 
+import io.github.pgy763.llmlint.lang.Messages;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -42,7 +44,7 @@ public final class Fixer {
             try {
                 original = Files.readString(Path.of(file), StandardCharsets.UTF_8);
             } catch (IOException e) {
-                throw new IOException("读不出 " + file + "：" + e.getMessage(), e);
+                throw new IOException(Messages.f("读不出 %s：%s", "cannot read %s: %s", file, e.getMessage()), e);
             }
             out.append(patch(file, original, entry.getValue()));
         }
@@ -130,7 +132,7 @@ public final class Fixer {
         for (int current = 1; current < line; current++) {
             int next = text.indexOf('\n', offset);
             if (next < 0) {
-                throw new IllegalArgumentException("行号超出文件：" + line);
+                throw new IllegalArgumentException(Messages.f("行号超出文件：%d", "line out of range: %d", line));
             }
             offset = next + 1;
         }

@@ -1,6 +1,7 @@
 package io.github.pgy763.llmlint.config;
 
 import io.github.pgy763.llmlint.Rule;
+import io.github.pgy763.llmlint.lang.Messages;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -98,12 +99,14 @@ public final class Config {
         long changed = levels.size() - off;
         List<String> parts = new ArrayList<>(2);
         if (off > 0) {
-            parts.add("关掉 " + off + " 条");
+            parts.add(Messages.f("关掉 %d 条", "%d off", off));
         }
         if (changed > 0) {
-            parts.add("改级别 " + changed + " 条");
+            parts.add(Messages.f("改级别 %d 条", "%d re-levelled", changed));
         }
-        return parts.isEmpty() ? "没有改动" : String.join("、", parts);
+        return parts.isEmpty()
+                ? Messages.t("没有改动", "no changes")
+                : String.join(Messages.t("、", ", "), parts);
     }
 
     /**
@@ -113,13 +116,14 @@ public final class Config {
     public String effectiveYaml(List<Rule> canonical, List<String> excludes,
                                 String effectiveFailOn, String effectiveMinSeverity) {
         StringBuilder sb = new StringBuilder();
-        sb.append("# llm-lint 生效配置");
+        sb.append(Messages.t("# llm-lint 生效配置", "# llm-lint effective config"));
         if (file == null) {
-            sb.append("（没找到 .llm-lint.yml，全部按默认值）");
+            sb.append(Messages.t("（没找到 .llm-lint.yml，全部按默认值）",
+                    " (no .llm-lint.yml found, all defaults)"));
         } else {
-            sb.append("（来自 ")
+            sb.append(Messages.t("（来自 ", " (from "))
                     .append(ConfigLoader.display(file, Path.of("").toAbsolutePath()))
-                    .append("）");
+                    .append(Messages.t("）", ")"));
         }
         sb.append("\n\nversion: 1\n\nrules:\n");
         for (Rule rule : canonical) {
@@ -173,8 +177,9 @@ public final class Config {
         for (MiniYaml.Entry entry : root.entries) {
             if (!TOP_LEVEL_KEYS.contains(entry.key)) {
                 throw error(file, entry.line,
-                        "不认识的键「" + entry.key + "」",
-                        "能写的只有 version / rules / exclude / fail-on / min-severity / baseline");
+                        Messages.f("不认识的键「%s」", "Unknown key \"%s\"", entry.key),
+                        Messages.t("能写的只有 version / rules / exclude / fail-on / min-severity / baseline",
+                                "The only keys are version / rules / exclude / fail-on / min-severity / baseline"));
             }
             switch (entry.key) {
                 case "version" -> readVersion(entry, file);
@@ -192,8 +197,10 @@ public final class Config {
     private static void readVersion(MiniYaml.Entry entry, Path file) throws ConfigException {
         String raw = scalar(entry, file, "version").trim();
         if (!raw.equals("1")) {
-            throw error(file, entry.line, "只认识 `version: 1`，写的是「" + raw + "」",
-                    "这个字段留着以后改格式用；现在照抄 `version: 1` 就行");
+            throw error(file, entry.line,
+                    Messages.f("只认识 `version: 1`，写的是「%s」", "Only `version: 1` is supported, found \"%s\"", raw),
+                    Messages.t("这个字段留着以后改格式用；现在照抄 `version: 1` 就行",
+                            "The field is reserved for future format changes; just write `version: 1`"));
         }
     }
 
@@ -204,8 +211,11 @@ public final class Config {
             return; // `rules:` 下面全是注释，等于没写
         }
         if (!(value instanceof MiniYaml.Mapping mapping)) {
-            throw error(file, entry.line, "rules 下面要写成 `LLM001: off` 这样的键值对",
-                    "示例：\n    rules:\n      LLM004: off\n      LLM007: error");
+            throw error(file, entry.line,
+                    Messages.t("rules 下面要写成 `LLM001: off` 这样的键值对",
+                            "rules must be `LLM001: off` style key/value pairs"),
+                    Messages.t("示例：\n    rules:\n      LLM004: off\n      LLM007: error",
+                            "Example:\n    rules:\n      LLM004: off\n      LLM007: error"));
         }
         for (MiniYaml.Entry rule : mapping.entries) {
             String id = rule.key.trim().toUpperCase(Locale.ROOT);
@@ -232,11 +242,15 @@ public final class Config {
             return;
         }
         if (!(value instanceof MiniYaml.Sequence sequence)) {
-            throw error(file, entry.line, "exclude 下面要写成 `- \"**/generated/**\"` 这样的列表");
+            throw error(file, entry.line,
+                    Messages.t("exclude 下面要写成 `- \"**/generated/**\"` 这样的列表",
+                            "exclude must be a list like `- \"**/generated/**\"`"));
         }
         for (MiniYaml.Node item : sequence.items) {
             if (!(item instanceof MiniYaml.Scalar scalar)) {
-                throw error(file, item.line, "exclude 的每一项都要是路径字符串");
+                throw error(file, item.line,
+                        Messages.t("exclude 的每一项都要是路径字符串",
+                                "Every exclude entry must be a path string"));
             }
             addPattern(scalar.value, exclude);
         }
@@ -264,12 +278,15 @@ public final class Config {
             }
         }
         throw error(file, entry.line,
-                "「" + entry.key + "」只能是 " + String.join(" / ", allowed) + "，写的是「" + raw + "」");
+                Messages.f("「%s」只能是 %s，写的是「%s」", "\"%s\" must be one of %s, found \"%s\"",
+                        entry.key, String.join(" / ", allowed), raw));
     }
 
     private static String scalar(MiniYaml.Entry entry, Path file, String what) throws ConfigException {
         if (!(entry.value instanceof MiniYaml.Scalar scalar)) {
-            throw error(file, entry.line, what + " 要写成一行文字，不能是嵌套结构");
+            throw error(file, entry.line,
+                    Messages.f("%s 要写成一行文字，不能是嵌套结构",
+                            "%s must be a single line of text, not a nested structure", what));
         }
         return scalar.value;
     }
@@ -284,19 +301,22 @@ public final class Config {
             case "error" -> RuleLevel.ERROR;
             case "warning", "warn" -> RuleLevel.WARNING;
             case "info", "note" -> RuleLevel.INFO;
-            case "" -> throw error(file, line, "规则 " + id + " 少了级别", "能写 off / error / warning / info");
+            case "" -> throw error(file, line,
+                    Messages.f("规则 %s 少了级别", "Rule %s has no level", id),
+                    Messages.t("能写 off / error / warning / info", "Allowed: off / error / warning / info"));
             default -> throw error(file, line,
-                    "规则 " + id + " 的级别不认识：「" + raw + "」",
-                    "能写 off / error / warning / info");
+                    Messages.f("规则 %s 的级别不认识：「%s」", "Unknown level for rule %s: \"%s\"", id, raw),
+                    Messages.t("能写 off / error / warning / info", "Allowed: off / error / warning / info"));
         };
     }
 
     private static ConfigException unknownRule(Path file, int line, String id, Collection<String> known) {
         String guess = nearest(id, known);
         String hint = guess == null
-                ? "全部规则：llm-lint --list-rules"
-                : "是不是 " + guess + "？全部规则：llm-lint --list-rules";
-        return error(file, line, "没有 " + id + " 这条规则", hint);
+                ? Messages.t("全部规则：llm-lint --list-rules", "All rules: llm-lint --list-rules")
+                : Messages.f("是不是 %s？全部规则：llm-lint --list-rules",
+                        "Did you mean %s? All rules: llm-lint --list-rules", guess);
+        return error(file, line, Messages.f("没有 %s 这条规则", "No such rule: %s", id), hint);
     }
 
     private static String nearest(String id, Collection<String> candidates) {
@@ -337,6 +357,7 @@ public final class Config {
     }
 
     private static ConfigException error(Path file, int line, String message, String hint) {
-        return new ConfigException(file + ":" + line + ": " + message + "\n  提示：" + hint);
+        return new ConfigException(file + ":" + line + ": " + message
+                + Messages.t("\n  提示：", "\n  hint: ") + hint);
     }
 }

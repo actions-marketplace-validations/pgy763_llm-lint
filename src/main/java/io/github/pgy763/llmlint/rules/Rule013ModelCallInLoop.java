@@ -5,6 +5,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -31,7 +32,7 @@ public final class Rule013ModelCallInLoop extends AbstractRule {
 
     @Override
     public String title() {
-        return "循环里逐个调模型/向量库";
+        return Messages.t("循环里逐个调模型/向量库", "Model/vector store call in a loop");
     }
 
     @Override
@@ -51,8 +52,12 @@ public final class Rule013ModelCallInLoop extends AbstractRule {
 
     @Override
     public String why() {
-        return "模型和向量库的耗时几乎全在网络往返上。循环里一次一条，10 条就是 10 次 RTT，"
-                + "延迟线性叠加，而批量接口往往能一次带走。";
+        return Messages.t(
+                "模型和向量库的耗时几乎全在网络往返上。循环里一次一条，10 条就是 10 次 RTT，"
+                        + "延迟线性叠加，而批量接口往往能一次带走。",
+                "Model and vector store time is almost all network round trips. One call per loop"
+                        + " iteration means 10 items is 10 RTTs: latency adds up linearly, while a"
+                        + " batch API can often take them in one go.");
     }
 
     @Override
@@ -78,11 +83,16 @@ public final class Rule013ModelCallInLoop extends AbstractRule {
             if (!Ast.insideLoop(call)) {
                 continue;
             }
-            out.add(at(file, call,
-                    "`" + call.getNameAsString() + "()` 写在循环里：每条一次往返，"
+            out.add(at(file, call, Messages.f(
+                    "`%s()` 写在循环里：每条一次往返，"
                             + "N 条数据的耗时就是 N 倍的网络延迟。"
                             + "能批量的一次带走（`embedAll`、一次查多个 id），"
-                            + "实在要逐条的，至少并发发出去再一起等。"));
+                            + "实在要逐条的，至少并发发出去再一起等。",
+                    "`%s()` inside a loop: one round trip per item, so N items cost N times the"
+                            + " network latency. Batch what you can (`embedAll`, one query for many"
+                            + " ids); for the ones that must be per item, at least fire them"
+                            + " concurrently and wait together.",
+                    call.getNameAsString())));
         }
         return out;
     }

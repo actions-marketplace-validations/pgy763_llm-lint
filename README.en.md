@@ -253,7 +253,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>] [--fix]
-         [--explain LLM001] [--list-rules] <path...>
+         [--lang <zh|en>] [--explain LLM001] [--list-rules] <path...>
 
   --format        text (default, for humans) / json / github (Actions annotations) / sarif
   --fail-on       error (default) / warning / never (report only)
@@ -274,6 +274,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --jobs          how many files to scan at once: default CPU count (max 8), 1 = sequential
   --since         only scan files changed since this git ref, e.g. origin/main or HEAD~1
   --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches)
+  --lang          zh (default) / en; human-readable text only, JSON fields stay put
   --explain       level, framework, rationale and suppression for one rule
 ```
 
@@ -281,6 +282,22 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
 `target/` and `build/`. Files are parsed in parallel (up to 8 threads by default) while the output
 order stays identical to serial runs; add `--jobs 1` on a busy machine or to reproduce a specific
 order.
+
+### English output and a machine-readable rule list
+
+CI is read by the whole team, and `--lang en` (or `LLM_LINT_LANG=en`) switches the human-facing
+text: help, reports, summaries, the PR comment and `--explain`. JSON / SARIF field names and values
+do not move, so downstream scripts keep working.
+
+For editor plugins, dashboards or doc generators, ask for the rule list as data:
+
+```bash
+llm-lint --list-rules --format json
+```
+
+One object per rule: `id`, `title`, `severity` (the rule's own default), `level` (what actually
+applies this run; the config file and `--disable` show up here, `off` when turned off),
+`framework`, `why`, `docUrl`, `fixable` (whether `--fix` can patch it).
 
 ### Scanning only what changed
 
@@ -400,7 +417,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.9.1 && git push origin v0.9.1
+git tag v0.10.0 && git push origin v0.10.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

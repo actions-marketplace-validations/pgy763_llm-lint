@@ -5,6 +5,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -26,7 +27,9 @@ public final class Rule014ChatMemoryConstantId extends AbstractRule {
 
     @Override
     public String title() {
-        return "ChatMemoryProvider 用了写死的 id";
+        return Messages.t(
+                "ChatMemoryProvider 用了写死的 id",
+                "ChatMemoryProvider with a hardcoded id");
     }
 
     @Override
@@ -46,9 +49,14 @@ public final class Rule014ChatMemoryConstantId extends AbstractRule {
 
     @Override
     public String why() {
-        return "ChatMemoryProvider 是按 id 发记忆的，id 写死就等于全站一个会话："
-                + "A 说过的名字、地址会出现在 B 的上下文里。这类问题在压测里看不出来，"
-                + "上线后第一个投诉的是用户。";
+        return Messages.t(
+                "ChatMemoryProvider 是按 id 发记忆的，id 写死就等于全站一个会话："
+                        + "A 说过的名字、地址会出现在 B 的上下文里。这类问题在压测里看不出来，"
+                        + "上线后第一个投诉的是用户。",
+                "ChatMemoryProvider hands out memory by id, so a hardcoded id means one session for"
+                        + " the whole site: the names and addresses A mentions show up in B's"
+                        + " context. This never shows up in load tests; the first complaint after"
+                        + " launch comes from a user.");
     }
 
     @Override
@@ -66,11 +74,14 @@ public final class Rule014ChatMemoryConstantId extends AbstractRule {
             if (!Ast.isConstantId(call.getArgument(0))) {
                 continue;
             }
-            out.add(at(file, call,
+            out.add(at(file, call, Messages.t(
                     "这里按固定 id 取记忆：所有用户拿到的是同一份，"
                             + "A 说过的话会出现在 B 的上下文里。"
                             + "id 要从请求里来（会话 id / userId），"
-                            + "每个会话一条，用完记得按 TTL 清。"));
+                            + "每个会话一条，用完记得按 TTL 清。",
+                    "This fetches memory by a fixed id: every user gets the same one, so what A"
+                            + " says shows up in B's context. Take the id from the request (session"
+                            + " id / userId), one per session, and clean them up by TTL.")));
         }
         return out;
     }

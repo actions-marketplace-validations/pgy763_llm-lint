@@ -80,6 +80,22 @@ jobs:
           test "$code" -eq 2
           grep -q -- "--since" since.err
 
+      - name: 自检 —— --lang en 说英文，规则目录能被程序读
+        run: |
+          java -jar target/llm-lint.jar --lang en --format json samples/bad > /dev/null 2> en.txt || true
+          grep -q 'findings' en.txt
+          if grep -q '个问题' en.txt; then echo "英文输出里混进了中文"; exit 1; fi
+          java -jar target/llm-lint.jar --list-rules --format json > rules.json
+          python3 - <<'PY'
+          import json
+          rules = json.load(open("rules.json", encoding="utf-8"))
+          assert len(rules) == 18, f"应该 18 条规则，实际 {len(rules)}"
+          assert {r["id"] for r in rules} == {f"LLM{i:03d}" for i in range(1, 19)}
+          assert {r["id"] for r in rules if r["fixable"]} == {"LLM006", "LLM018"}
+          assert all(r["level"] in {"off", "error", "warning", "info"} for r in rules)
+          print("lang + rule catalog ok")
+          PY
+
       - name: 自检 —— 摘要文件能给 job 页面用
         run: |
           java -jar target/llm-lint.jar --summary target/summary.md --format json samples/bad > /dev/null || true

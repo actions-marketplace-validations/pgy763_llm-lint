@@ -2,6 +2,7 @@ package io.github.pgy763.llmlint.report;
 
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 
 import java.util.List;
 
@@ -26,18 +27,19 @@ public final class MarkdownReport {
         StringBuilder sb = new StringBuilder(MARKER).append('\n');
 
         if (findings.isEmpty()) {
-            sb.append("**llm-lint：没有发现问题**，扫了 ").append(filesScanned).append(" 个文件。\n");
+            sb.append(Messages.f("**llm-lint：没有发现问题**，扫了 %d 个文件。\n",
+                    "**llm-lint: no findings**, scanned %d files.\n", filesScanned));
             appendTail(sb, known, suppressed);
             return sb.toString();
         }
 
         long errors = findings.stream().filter(f -> f.severity() == Severity.ERROR).count();
         long warnings = findings.stream().filter(f -> f.severity() == Severity.WARNING).count();
-        sb.append("**llm-lint：").append(findings.size()).append(" 个问题**（")
-                .append(errors).append(" error / ").append(warnings).append(" warning），扫了 ")
-                .append(filesScanned).append(" 个文件。\n\n");
+        sb.append(Messages.f("**llm-lint：%d 个问题**（%d error / %d warning），扫了 %d 个文件。\n\n",
+                "**llm-lint: %d findings** (%d error / %d warning), scanned %d files.\n\n",
+                findings.size(), errors, warnings, filesScanned));
 
-        sb.append("| 级别 | 规则 | 位置 | 问题 |\n")
+        sb.append(Messages.t("| 级别 | 规则 | 位置 | 问题 |\n", "| Level | Rule | Where | Problem |\n"))
                 .append("| --- | --- | --- | --- |\n");
         for (Finding finding : findings) {
             sb.append("| ").append(finding.severity().label())
@@ -55,10 +57,12 @@ public final class MarkdownReport {
         }
         sb.append('\n');
         if (known > 0) {
-            sb.append("另有 ").append(known).append(" 条在基线里，这次不报。\n");
+            sb.append(Messages.f("另有 %d 条在基线里，这次不报。\n",
+                    "%d more are in the baseline and were not reported.\n", known));
         }
         if (suppressed > 0) {
-            sb.append("抑制 ").append(suppressed).append(" 条（注释里写了 llm-lint:ignore）。\n");
+            sb.append(Messages.f("抑制 %d 条（注释里写了 llm-lint:ignore）。\n",
+                    "%d suppressed with llm-lint:ignore comments.\n", suppressed));
         }
     }
 

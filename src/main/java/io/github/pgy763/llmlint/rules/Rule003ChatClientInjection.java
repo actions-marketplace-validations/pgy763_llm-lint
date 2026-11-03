@@ -9,6 +9,7 @@ import com.github.javaparser.ast.body.VariableDeclarator;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -30,7 +31,7 @@ public final class Rule003ChatClientInjection extends AbstractRule {
 
     @Override
     public String title() {
-        return "让容器注入 ChatClient";
+        return Messages.t("让容器注入 ChatClient", "Container-injected ChatClient");
     }
 
     @Override
@@ -45,7 +46,11 @@ public final class Rule003ChatClientInjection extends AbstractRule {
 
     @Override
     public String why() {
-        return "Spring AI 的自动配置只注册 ChatClient.Builder 和 ChatModel，没有 ChatClient 这种 Bean。注入它启动就失败，报的还只是「找不到 Bean」。";
+        return Messages.t(
+                "Spring AI 的自动配置只注册 ChatClient.Builder 和 ChatModel，没有 ChatClient 这种 Bean。注入它启动就失败，报的还只是「找不到 Bean」。",
+                "Spring AI auto-configuration registers only ChatClient.Builder and ChatModel;"
+                        + " there is no ChatClient bean. Injecting it fails at startup, and the error"
+                        + " only says \"no bean found\".");
     }
 
     @Override
@@ -65,21 +70,31 @@ public final class Rule003ChatClientInjection extends AbstractRule {
             }
             for (VariableDeclarator v : f.getVariables()) {
                 if ("ChatClient".equals(typeName(v.getTypeAsString()))) {
-                    out.add(at(file, v,
-                            "字段 `" + v.getNameAsString() + "` 让容器注入 `ChatClient`。"
+                    out.add(at(file, v, Messages.f(
+                            "字段 `%s` 让容器注入 `ChatClient`。"
                                     + "Spring AI 的自动配置只注册 `ChatClient.Builder`（以及 ChatModel），"
                                     + "没有 `ChatClient`——启动就是 `NoSuchBeanDefinitionException`。"
                                     + "注入 `ChatClient.Builder`，在构造里 `build()`；"
-                                    + "或者自己定义一个 `@Bean ChatClient`。"));
+                                    + "或者自己定义一个 `@Bean ChatClient`。",
+                            "Field `%s` has the container inject `ChatClient`. Spring AI"
+                                    + " auto-configuration registers only `ChatClient.Builder` (and"
+                                    + " ChatModel), not `ChatClient` — startup fails with"
+                                    + " `NoSuchBeanDefinitionException`. Inject `ChatClient.Builder`"
+                                    + " and call `build()` in the constructor, or define your own"
+                                    + " `@Bean ChatClient`.",
+                            v.getNameAsString())));
                 }
             }
         }
         for (ConstructorDeclaration ctor : cu.findAll(ConstructorDeclaration.class)) {
             for (Parameter p : ctor.getParameters()) {
                 if ("ChatClient".equals(typeName(p.getTypeAsString()))) {
-                    out.add(at(file, p,
-                            "构造参数 `" + p.getNameAsString() + "` 要的是 `ChatClient`，"
-                                    + "容器里只有 `ChatClient.Builder`。换成 Builder 再 build。"));
+                    out.add(at(file, p, Messages.f(
+                            "构造参数 `%s` 要的是 `ChatClient`，"
+                                    + "容器里只有 `ChatClient.Builder`。换成 Builder 再 build。",
+                            "Constructor parameter `%s` asks for `ChatClient`, but the container"
+                                    + " only has `ChatClient.Builder`. Switch to Builder and build.",
+                            p.getNameAsString())));
                 }
             }
         }

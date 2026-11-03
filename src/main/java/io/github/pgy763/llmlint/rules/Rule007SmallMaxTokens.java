@@ -6,6 +6,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -26,7 +27,7 @@ public final class Rule007SmallMaxTokens extends AbstractRule {
 
     @Override
     public String title() {
-        return "maxTokens 太小";
+        return Messages.t("maxTokens 太小", "maxTokens too small");
     }
 
     @Override
@@ -41,7 +42,11 @@ public final class Rule007SmallMaxTokens extends AbstractRule {
 
     @Override
     public String why() {
-        return "maxTokens 是上限不是目标。给 128 时模型想调工具，参数 JSON 写到一半就被截断，客户端看到 Unexpected end-of-input，看着像解析 bug。";
+        return Messages.t(
+                "maxTokens 是上限不是目标。给 128 时模型想调工具，参数 JSON 写到一半就被截断，客户端看到 Unexpected end-of-input，看着像解析 bug。",
+                "maxTokens is a ceiling, not a target. At 128, when the model wants to call a tool"
+                        + " the argument JSON is cut off mid-write; the client sees Unexpected"
+                        + " end-of-input, which looks like a parsing bug.");
     }
 
     @Override
@@ -62,11 +67,17 @@ public final class Rule007SmallMaxTokens extends AbstractRule {
                 continue;
             }
             if (value > 0 && value <= TOO_SMALL) {
-                out.add(at(file, call,
-                        "`" + call.getNameAsString() + "(" + value + ")` 只留了 " + value + " 个 token。"
+                out.add(at(file, call, Messages.f(
+                        "`%s(%d)` 只留了 %d 个 token。"
                                 + "只要模型要调工具，参数就是一段 JSON——写到这里被截断，客户端看到的是"
                                 + " `Unexpected end-of-input`，看着像解析 bug，其实是预算不够。"
-                                + "工具场景留 1024 以上，并且把「是否被截断」当错误处理。"));
+                                + "工具场景留 1024 以上，并且把「是否被截断」当错误处理。",
+                        "`%s(%d)` leaves only %d tokens. As soon as the model calls a tool the"
+                                + " arguments are a JSON blob — truncated here, the client sees"
+                                + " `Unexpected end-of-input`; it looks like a parsing bug but is"
+                                + " really a budget problem. Leave 1024+ for tool use, and treat"
+                                + " \"was it truncated\" as an error.",
+                        call.getNameAsString(), value, value)));
             }
         }
         return out;
