@@ -190,6 +190,8 @@ permissions:
     sarif_file: llm-lint.sarif
 ```
 
+每条结果带 `partialFingerprints`：同一条问题在后续提交里不会重复计数，挪行号也还是同一条。
+
 只认 JUnit 报告的 CI（Jenkins、GitLab CI）：
 
 ```yaml
@@ -427,7 +429,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.11.2 && git push origin v0.11.2
+git tag v0.12.0 && git push origin v0.12.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

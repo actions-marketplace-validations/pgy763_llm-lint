@@ -74,6 +74,8 @@ jobs:
 
 `|| true` 是为了让「有问题」不中断上传——问题体现在 SARIF 里，而不是这一步的退出码。SARIF 里每条规则的 `defaultConfiguration.level` 也跟着配置里的级别走，Code Scanning 会把 error 和 warning 分开显示。
 
+每条结果还带 `partialFingerprints`（规则 + 文件 + 消息算出来的短哈希）：同一条问题在后续提交里不会被当成新告警再报一遍，**挪了行号也还是同一条**；只有消息本身变了（比如 `maxTokens` 从 128 改成 256）才算新问题。
+
 ### 只跑改动文件
 
 ```yaml

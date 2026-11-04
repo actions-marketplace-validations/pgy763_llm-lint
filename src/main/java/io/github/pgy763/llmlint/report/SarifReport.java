@@ -3,6 +3,9 @@ package io.github.pgy763.llmlint.report;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Rule;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +53,8 @@ public final class SarifReport {
             Finding f = findings.get(i);
             sb.append("        {\n")
                     .append("          \"ruleId\": \"").append(JsonReport.escape(f.ruleId())).append("\",\n")
+                    .append("          \"partialFingerprints\": {\"llm-lint/v1\": \"")
+                    .append(fingerprint(f)).append("\"},\n")
                     .append("          \"level\": \"").append(level(f.severity().name())).append("\",\n")
                     .append("          \"message\": {\"text\": \"")
                     .append(JsonReport.escape(f.title() + "：" + f.message())).append("\"},\n")
@@ -73,6 +78,24 @@ public final class SarifReport {
                 .append("  ]\n")
                 .append("}\n");
         return sb.toString();
+    }
+
+    /**
+     * Code Scanning 用这个指纹把「同一条问题」跨提交认成同一个告警，而不是每跑一次多一条。
+     * 只算 规则 + 文件 + 消息：挪了行、加了空行都还是同一条；消息变了才算新的。
+     */
+    static String fingerprint(Finding f) {
+        String key = f.ruleId() + (char) 0x1F + f.file() + (char) 0x1F + f.message();
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (int i = 0; i < 8; i++) {
+                hex.append(String.format("%02x", hash[i]));
+            }
+            return hex.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("JDK 里没有 SHA-256？", e);
+        }
     }
 
     private static String level(String severity) {

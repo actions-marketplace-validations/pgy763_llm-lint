@@ -9,6 +9,7 @@ description: 每个版本改了什么，哪些变化可能影响已经接入的�
 
 | 版本 | 主要变化 |
 | --- | --- |
+| 0.12.0 | SARIF 带 `partialFingerprints`，Code Scanning 里同一条问题不会每次都算新告警 |
 | 0.11.0 | `--format junit`（Jenkins/GitLab）、`--format html`、`--init-hook` 写 pre-commit |
 | 0.10.0 | `--lang en` 英文输出；`--list-rules --format json` 机器可读的规则目录 |
 | 0.9.1 | `--fix` 输出 unified diff（LLM006、LLM018） |
