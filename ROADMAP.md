@@ -58,7 +58,7 @@
 
 ### `--list-rules --format markdown` · good first issue
 
-把十八条规则渲染成 `docs/rules.md` 顶部那张表，文档就能由代码生成，不用手动同步「十八条」这类数字。
+把十九条规则渲染成 `docs/rules.md` 顶部那张表，文档就能由代码生成，不用手动同步「十九条」这类数字。
 
 验收：输出列与现有表格一致（编号 / 级别 / 框架 / 一句话）；有测试锁住「表里的规则数 = `Rules.all().size()`」；`tools/` 下加一个脚本，用它重写 `docs/rules.md` 的表格段落。
 
