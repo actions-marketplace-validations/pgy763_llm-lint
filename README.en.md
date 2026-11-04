@@ -478,7 +478,7 @@ The scope is deliberately narrow — syntax tree only, report only what is unamb
 - Adding a rule: follow the checklist in [CONTRIBUTING](CONTRIBUTING.md#加一条规则) (one class, one failing sample, one clean sample, one doc section); `mvn verify` tells you what you forgot.
 - Looking for something to do: [ROADMAP](ROADMAP.md) has four rules with the detection logic already written down (LLM019–LLM022) plus a few engineering tasks, each labelled with difficulty. `good first issue` means it really is a first-PR-sized job.
 - Found a false positive: open an issue with the **rule** template and paste the smallest snippet that reproduces it. A snippet beats a description ten times over.
-- Just want to say it helped (or didn't): [Discussions](https://github.com/pgy763/llm-lint/discussions) or a star.
+- Just want to say it helped (or didn't): [open an issue](https://github.com/pgy763/llm-lint/issues/new) or leave a star.
 
 This is maintained by one person in the evenings, so opening an issue before a large PR gets it reviewed much faster. A rejected PR usually means the detection trade-off is wrong, not that the code is bad: this kind of tool only survives by **preferring a miss over a false alarm**.
 

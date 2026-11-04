@@ -454,7 +454,7 @@ the GitHub Marketplace*、选个分类。这一步只能手工点，勾完这个
 - 想加规则：照着 [CONTRIBUTING](CONTRIBUTING.md#加一条规则) 的清单做——一个类、一个反例、一个正例、一节文档，`mvn verify` 会把漏掉的地方指出来
 - 不知道从哪下手：[ROADMAP](ROADMAP.md) 里有四条写好判断思路的规则（LLM019–LLM022）和几个工程活，标了难度，标着 `good first issue` 的是真的第一次提 PR 就能做完
 - 发现误报：用「规则误报」模板开 issue，**贴能复现的代码**，比描述有用十倍
-- 只是想说声好用 / 不好用：开 [Discussions](https://github.com/pgy763/llm-lint/discussions) 或者点个 star 都行
+- 只是想说声好用 / 不好用：开个 [issue](https://github.com/pgy763/llm-lint/issues/new) 说一句，或者点个 star 都行
 
 维护者也是一个人在晚上写，所以：提 PR 之前先在 issue 里说一句，审起来会快很多；被拒的 PR 一般不是写得不好，而是判断口径不对——这类工具唯一活得下去的方式是**宁可漏报，不可乱报**。
 
