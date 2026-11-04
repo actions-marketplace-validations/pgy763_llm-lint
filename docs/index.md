@@ -90,6 +90,7 @@ llm-lint --baseline .llm-lint.baseline                        # 之后只看新�
 
 **维护者**
 
-- [推广与可见度](promote.md) —— 这个项目希望被搜到的地方
+- [版本历史](changelog.md) —— 每个版本改了什么
+- 推广清单留在仓库里：[docs/promote.md](https://github.com/pgy763/llm-lint/blob/main/docs/promote.md)
 
 源码、releases 和 Marketplace 页面都在 [github.com/pgy763/llm-lint](https://github.com/pgy763/llm-lint)。

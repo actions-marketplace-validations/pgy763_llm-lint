@@ -450,7 +450,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.11.0 && git push origin v0.11.0
+git tag v0.11.1 && git push origin v0.11.1
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a
@@ -470,6 +470,7 @@ does the version show up in Actions search.
 
 ## See also
 
+- [Documentation site](https://pgy763.github.io/llm-lint/) — [getting started](https://pgy763.github.io/llm-lint/start.html), [CI recipes](https://pgy763.github.io/llm-lint/integrations.html), [rules by error message](https://pgy763.github.io/llm-lint/errors.html), [FAQ](https://pgy763.github.io/llm-lint/faq.html), [rule reference](https://pgy763.github.io/llm-lint/rules.html)
 - [llm-dev-pitfalls](https://pgy763.github.io/llm-dev-pitfalls/) — the handbook behind this linter, 51 entries with verbatim errors
 - [hello-ai-backend](https://pgy763.github.io/hello-ai-backend/) — a book that starts with your first model call
 

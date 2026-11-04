@@ -7,6 +7,10 @@
 > baseline support for existing codebases, --since to scan only files changed in a pull request,
 > and --fix to print a patch for the two mechanically fixable rules (LLM006, LLM018).
 
+- [Documentation site](https://pgy763.github.io/llm-lint/): getting started, CI recipes, rules by error message
+- [Getting started](https://pgy763.github.io/llm-lint/start.html): install, first run, exit codes, output formats
+- [CI recipes](https://pgy763.github.io/llm-lint/integrations.html): GitHub Action, GitLab, Jenkins, pre-commit, Maven
+- [Rules by error message](https://pgy763.github.io/llm-lint/errors.html): NoSuchBeanDefinitionException, HikariPool timeouts, truncated streams
 - [Eighteen rules](docs/rules.md): what each rule catches, with counter-examples and fixes
 - [Per-project configuration](docs/config.md): `.llm-lint.yml` schema, discovery, precedence
 - [Baseline](docs/baseline.md): accept existing findings so CI only blocks new ones
