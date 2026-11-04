@@ -131,8 +131,18 @@ jobs:
               exit 0
               ;;
           esac
+          # GitHub 的 SSH/HTTPS 入口偶尔会拒一次，推 tag 失败先退一步再试
           git tag -f v1 "$GITHUB_REF_NAME"
-          git push -f origin "refs/tags/v1"
+          for i in 1 2 3; do
+            if out="$(git push -f origin "refs/tags/v1" 2>&1)"; then
+              echo "v1 -> $GITHUB_REF_NAME"
+              exit 0
+            fi
+            echo "第 $i 次推 v1 失败：$out"
+            sleep $((i * 5))
+          done
+          echo "::error::v1 指针没挪动（三次都失败）：$(printf '%s' "$out" | tr '\n' ' ' | tail -c 500)"
+          exit 1
 
       - name: 确认 action 默认取的那个地址真的能下到
         run: |
