@@ -18,6 +18,7 @@ import io.github.pgy763.llmlint.rules.Rule015ReactiveInTransaction;
 import io.github.pgy763.llmlint.rules.Rule016ToolReturnsReactive;
 import io.github.pgy763.llmlint.rules.Rule017VectorInTransaction;
 import io.github.pgy763.llmlint.rules.Rule018StreamingWithoutProduces;
+import io.github.pgy763.llmlint.rules.Rule019ToolBlocks;
 
 import java.util.List;
 
@@ -46,6 +47,7 @@ public final class Rules {
                 new Rule015ReactiveInTransaction(),
                 new Rule016ToolReturnsReactive(),
                 new Rule017VectorInTransaction(),
-                new Rule018StreamingWithoutProduces());
+                new Rule018StreamingWithoutProduces(),
+                new Rule019ToolBlocks());
     }
 }

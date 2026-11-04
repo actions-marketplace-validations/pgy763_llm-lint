@@ -21,7 +21,7 @@ class RuleCatalogTest {
     @Test
     void 每条规则一条记录() {
         String json = RuleCatalog.format(RULES, Config.EMPTY, Set.of());
-        assertEquals(18, count(json, "\"id\": \"LLM"));
+        assertEquals(19, count(json, "\"id\": \"LLM"));
         assertTrue(json.startsWith("[\n"));
         assertTrue(json.endsWith("]\n"));
     }

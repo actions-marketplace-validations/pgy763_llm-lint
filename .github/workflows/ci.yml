@@ -44,7 +44,7 @@ jobs:
           import json
           d = json.load(open("llm-lint.sarif", encoding="utf-8"))
           assert d["version"] == "2.1.0"
-          assert len(d["runs"][0]["results"]) == 18
+          assert len(d["runs"][0]["results"]) == 19
           print("sarif ok")
           PY
 
@@ -54,8 +54,8 @@ jobs:
           python3 - <<'PY'
           import json
           data = json.load(open("findings.json", encoding="utf-8"))
-          assert len(data) == 18, f"应该 18 条，实际 {len(data)}"
-          assert {d["ruleId"] for d in data} == {f"LLM{i:03d}" for i in range(1, 19)}
+          assert len(data) == 19, f"应该 19 条，实际 {len(data)}"
+          assert {d["ruleId"] for d in data} == {f"LLM{i:03d}" for i in range(1, 20)}
           print("json ok")
           PY
 
@@ -89,8 +89,8 @@ jobs:
           python3 - <<'PY'
           import json
           rules = json.load(open("rules.json", encoding="utf-8"))
-          assert len(rules) == 18, f"应该 18 条规则，实际 {len(rules)}"
-          assert {r["id"] for r in rules} == {f"LLM{i:03d}" for i in range(1, 19)}
+          assert len(rules) == 19, f"应该 19 条规则，实际 {len(rules)}"
+          assert {r["id"] for r in rules} == {f"LLM{i:03d}" for i in range(1, 20)}
           assert {r["id"] for r in rules if r["fixable"]} == {"LLM006", "LLM018"}
           assert all(r["level"] in {"off", "error", "warning", "info"} for r in rules)
           print("lang + rule catalog ok")
@@ -99,9 +99,9 @@ jobs:
       - name: 自检 —— 摘要文件能给 job 页面用
         run: |
           java -jar target/llm-lint.jar --summary target/summary.md --format json samples/bad > /dev/null || true
-          grep -q '18 个问题' target/summary.md
+          grep -q '19 个问题' target/summary.md
           grep -q '| LLM007 | warning | 1 |' target/summary.md
-          test "$(grep -c '^| LLM' target/summary.md)" -eq 18
+          test "$(grep -c '^| LLM' target/summary.md)" -eq 19
           echo "summary ok"
 
       - name: 自检 —— --fix 的补丁能真的 apply 上
@@ -129,14 +129,14 @@ jobs:
           root = ET.parse("junit.xml").getroot()
           assert root.tag == "testsuites", root.tag
           cases = root.findall(".//testcase")
-          assert len(cases) == 18, f"应该 18 个 testcase，实际 {len(cases)}"
+          assert len(cases) == 19, f"应该 19 个 testcase，实际 {len(cases)}"
           assert len(root.findall(".//failure")) == 10, "error 应该是 10 个 failure"
           print("junit ok")
           PY
           java -jar target/llm-lint.jar --format html samples/bad > report.html || true
           grep -q '<title>llm-lint</title>' report.html
           grep -q '<table>' report.html
-          test "$(grep -c '<tr class=' report.html)" -eq 18
+          test "$(grep -c '<tr class=' report.html)" -eq 19
           work="$(mktemp -d)"
           git -C "$work" init -q
           java -jar target/llm-lint.jar --init-hook "$work" > /dev/null
@@ -185,7 +185,7 @@ jobs:
           mkdir -p "$work/src"
           cp samples/bad/*.java "$work/src/"
           jar="$GITHUB_WORKSPACE/target/llm-lint.jar"
-          # 第一次：把 18 条旧问题存进基线，这次本身不失败
+          # 第一次：把 19 条旧问题存进基线，这次本身不失败
           java -jar "$jar" --save-baseline "$work/base.txt" --fail-on never "$work/src" > /dev/null
           # 旧代码不动，应该干干净净
           java -jar "$jar" --baseline "$work/base.txt" --format json "$work/src" > "$work/after.json"

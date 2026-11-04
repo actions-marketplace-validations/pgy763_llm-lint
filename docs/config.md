@@ -206,7 +206,7 @@ $ java -jar llm-lint.jar --config .llm-lint.yml src/main/java
 java -jar llm-lint.jar --init
 ```
 
-在当前目录写 `.llm-lint.yml`：十八条规则各一行注释（带默认级别），外加 exclude、fail-on、
+在当前目录写 `.llm-lint.yml`：十九条规则各一行注释（带默认级别），外加 exclude、fail-on、
 min-severity 的注释示例。**全部是注释，等于没生效**，你按需去掉 `#`。文件已存在时**不覆盖**，
 退出码 `2`——`--init` 是给新项目用的，不是用来重置的。
 

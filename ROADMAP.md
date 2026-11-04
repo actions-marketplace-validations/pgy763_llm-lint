@@ -8,6 +8,7 @@
 
 | 版本 | 主题 |
 | --- | --- |
+| 0.14.0 | LLM019：`@Tool` 方法里做阻塞调用（路线图的第一条提案落地了） |
 | 0.13.0 | 贡献者入口：CONTRIBUTING、issue/PR 模板、这份路线图 |
 | 0.12.0 | SARIF `partialFingerprints`，Code Scanning 不再重复计数 |
 | 0.11.0 | JUnit / HTML 报告、`--init-hook` |
@@ -15,21 +16,7 @@
 
 ## 想加的规则
 
-判断口径和现有十八条一样：只读语法树、靠类型名后缀认模型调用、认不出来就不报。每个提案都写好了「怎么认」和「样例长什么样」，照着写就行；写之前把 [CONTRIBUTING 的加规则清单](CONTRIBUTING.md#加一条规则)过一遍。
-
-### LLM019 `@Tool` 方法里做阻塞调用 · good first issue
-
-**为什么**：工具调用跑在请求线程上。方法里一条 JDBC 查询、一次同步 HTTP、甚至 `Thread.sleep`，都会把整个响应时间拉长；模型那边还在等工具返回，用户看到的是「卡住了」。
-
-**怎么认**：方法带 `@Tool`（`dev.langchain4j.agent.tool.Tool` 或 Spring AI 的 `@Tool`），方法体里出现下列任一：
-
-- 调用 `.block()`、`.blockFirst()`、`.blockLast()`、`.join()`、`.get()`（在 `Mono`/`Flux`/`Future` 上）
-- `Thread.sleep(`
-- 调用接收者类型名以 `Repository`、`Mapper`、`JdbcTemplate`、`RestTemplate`、`WebClient` 结尾或等于其一
-
-**级别**：warning。工具方法里读一次缓存是合理的，所以别定成 error。
-
-**样例**：`samples/bad/LLM019_ToolBlocksOnDb.java` 一个 `@Tool` 方法里调 `orderRepository.findById(...)`；`samples/good/LLM019_ToolReadsCache.java` 只读 `Map`。
+判断口径和现有十九条一样：只读语法树、靠类型名后缀认模型调用、认不出来就不报。每个提案都写好了「怎么认」和「样例长什么样」，照着写就行；写之前把 [CONTRIBUTING 的加规则清单](CONTRIBUTING.md#加一条规则)过一遍。
 
 ### LLM020 事务方法里等异步结果 · good first issue
 

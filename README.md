@@ -8,13 +8,13 @@
 
 **扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那些最贵的坑。**
 
-十八条规则，每一条都对应一个「上线之后才发现」的故障：事务里等模型把连接池拖干、所有人共用一份
+十九条规则，每一条都对应一个「上线之后才发现」的故障：事务里等模型把连接池拖干、所有人共用一份
 对话记忆、`new SseEmitter()` 三十秒断流、密钥进了 git 历史……
 
 它不跑测试、不连模型、不要 API key、不需要项目的 classpath，只看源码。一条命令，几秒钟。
 
 那些坑的完整现场（报错原文、怎么复现、怎么改）在另一份手册里：<https://pgy763.github.io/llm-dev-pitfalls/>。
-这个工具就是那份手册的「检查器版本」——`samples/bad/` 里十八条反例，每条都能对上手册里的一个条目。
+这个工具就是那份手册的「检查器版本」——`samples/bad/` 里十九条反例，每条都能对上手册里的一个条目。
 
 ---
 
@@ -43,7 +43,7 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 - 想改阈值：`--fail-on warning`（警告也卡）或 `--fail-on never`（只报告，不失败）。
 - 想知道某条规则为什么存在：`java -jar llm-lint.jar --explain LLM001`。
 
-不想先拿自己的项目试也行：`samples/bad/` 里是十八条反例，`java -jar llm-lint.jar samples/bad`
+不想先拿自己的项目试也行：`samples/bad/` 里是十九条反例，`java -jar llm-lint.jar samples/bad`
 会把它们全报出来；`samples/good/` 是改好的版本，一条都不报。
 
 两个框架都认：Spring AI 的 `ChatClient` / `ChatModel` / `ChatMemory`，LangChain4j 的
@@ -216,7 +216,7 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
     java -jar llm-lint.jar --format github src/main/java
 ```
 
-## 十八条规则
+## 十九条规则
 
 | 编号 | 级别 | 只看这个框架 | 拦的是什么 | 出事时你会看到 |
 | --- | --- | --- | --- | --- |
@@ -238,6 +238,7 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
 | LLM016 | error | 通用 | `@Tool` 方法返回 `Mono` / `Flux` | 模型拿到 `Mono@1a2b`，或者整轮对话 500 |
 | LLM017 | error | 通用 | 事务里查/写向量库 | 和事务里调模型一样，连接池先干 |
 | LLM018 | warning | 通用 | 返回 `Flux` 却没写 `produces` | 前端还是等很久、然后全出来 |
+| LLM019 | warning | 通用 | `@Tool` 方法里查库 / 调同步接口 / `Thread.sleep` | 模型在等工具，整轮响应被拖住 |
 
 每条的反例、改法、判断范围：**[docs/rules.md](docs/rules.md)**。
 `java -jar llm-lint.jar --list-rules` 随时能看这张表。
@@ -430,7 +431,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.13.1 && git push origin v0.13.1
+git tag v0.14.0 && git push origin v0.14.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

@@ -24,7 +24,7 @@ java -jar target/llm-lint.jar samples/bad
 命令行里常用的几个：
 
 ```bash
-java -jar target/llm-lint.jar --list-rules          # 十八条规则的编号、级别、标题
+java -jar target/llm-lint.jar --list-rules          # 十九条规则的编号、级别、标题
 java -jar target/llm-lint.jar --explain LLM007     # 一条规则的完整解释
 java -jar target/llm-lint.jar --format json samples/bad | head -30
 ```
@@ -90,13 +90,13 @@ public final class Rule019ToolBlocks extends AbstractRule {
 
 | 位置 | 改什么 |
 | --- | --- |
-| `README.md` / `README.en.md` | 规则表加一行，「十八条」的说法 |
+| `README.md` / `README.en.md` | 规则表加一行，「十九条」的说法 |
 | `docs/rules.md` 顶部 | 表格加一行 |
 | `docs/changelog.md` | 新版本一行 |
-| `action.yml` 描述 | 里面的「18 rules」 |
+| `action.yml` 描述 | 里面的「19 rules」 |
 | `llms.txt` | 规则数量 |
 | 测试里的条数断言 | `SamplesTest`、`SummaryCliTest`、`MarkdownCliTest`、`ParallelScanTest`、`BaselineCliTest`、`ConfigTest`、`ProjectConfigTest` |
-| `.github/workflows/ci.yml` | json 自检的 `range(1, 19)` 和 `grep -c` 的数量 |
+| `.github/workflows/ci.yml` | json 自检的 `range(1, 20)` 和 `grep -c` 的数量 |
 
 一次 `mvn -B -ntp verify` 会把漏掉的地方指出来——测试名基本都写的是中文，红在哪一行照着改就行。
 

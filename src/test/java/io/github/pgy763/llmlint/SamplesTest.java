@@ -48,7 +48,7 @@ class SamplesTest {
 
     private static Set<String> expectedIds() {
         Set<String> ids = new LinkedHashSet<>();
-        for (int i = 1; i <= 18; i++) {
+        for (int i = 1; i <= 19; i++) {
             ids.add(String.format("LLM%03d", i));
         }
         return ids;
@@ -63,7 +63,7 @@ class SamplesTest {
     @Test
     void badSample触发且只触发它自己那条规则() throws IOException {
         List<Path> bad = javaFiles("bad");
-        assertEquals(18, bad.size(), "应该有十八个反例");
+        assertEquals(19, bad.size(), "应该有十八个反例");
 
         for (Path file : bad) {
             String expected = file.getFileName().toString().substring(0, 6);
@@ -81,7 +81,7 @@ class SamplesTest {
     @Test
     void goodSample不报任何问题() throws IOException {
         List<Path> good = javaFiles("good");
-        assertEquals(18, good.size(), "应该有十八个正例");
+        assertEquals(19, good.size(), "应该有十八个正例");
 
         for (Path file : good) {
             List<Finding> findings = lint(file);
@@ -90,10 +90,10 @@ class SamplesTest {
     }
 
     @Test
-    void 规则编号唯一且十八条() {
+    void 规则编号唯一且十九条() {
         Set<String> ids = new LinkedHashSet<>();
         Rules.all().forEach(r -> assertTrue(ids.add(r.id()), "编号重复: " + r.id()));
-        assertEquals(18, ids.size());
+        assertEquals(19, ids.size());
         assertEquals(expectedIds(), ids);
     }
 
@@ -225,7 +225,7 @@ class SamplesTest {
         assertTrue(sarif.contains("\"helpUri\""), "规则要带 helpUri");
         assertTrue(sarif.contains("\"rules\"") && sarif.contains("\"results\""));
         assertTrue(sarif.contains("\"startLine\""));
-        assertEquals(18, countOccurrences(sarif, "\"ruleId\""));
+        assertEquals(19, countOccurrences(sarif, "\"ruleId\""));
     }
 
     private static int countOccurrences(String text, String needle) {
@@ -246,7 +246,7 @@ class SamplesTest {
                 .setErr(new PrintWriter(java.io.OutputStream.nullOutputStream()));
         assertEquals(1, cli.execute("--format", "github", SAMPLES.resolve("bad").toString()));
         List<String> lines = out.toString().lines().filter(l -> l.startsWith("::")).toList();
-        assertEquals(18, lines.size(), String.join("\n", lines));
+        assertEquals(19, lines.size(), String.join("\n", lines));
         assertTrue(lines.stream().allMatch(l -> l.contains("line=")));
     }
 }

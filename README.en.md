@@ -8,7 +8,7 @@ English | [中文](README.md)
 
 **Scan Spring AI / LangChain4j code and stop the expensive mistakes before you commit.**
 
-Eighteen rules, each one a failure you only find out about in production: a model call inside a
+Nineteen rules, each one a failure you only find out about in production: a model call inside a
 transaction draining the connection pool, a single shared chat memory leaking one user's context
 into another's, `new SseEmitter()` dropping the stream after thirty seconds, an API key that is
 already in your git history…
@@ -18,7 +18,7 @@ One command, a few seconds.
 
 The full story behind each pitfall (verbatim errors, how to reproduce, how to fix) lives in a
 separate handbook: <https://pgy763.github.io/llm-dev-pitfalls/>. This tool is the "linter version"
-of that handbook — the eighteen counter-examples in `samples/bad/` map one-to-one to its entries.
+of that handbook — the nineteen counter-examples in `samples/bad/` map one-to-one to its entries.
 
 ---
 
@@ -48,7 +48,7 @@ llm-lint: 1 issue (1 error / 0 warning), 12 files scanned
 - To change the threshold: `--fail-on warning` (warnings fail too) or `--fail-on never` (report only).
 - To learn why a rule exists: `java -jar llm-lint.jar --explain LLM001`.
 
-You don't have to try it on your own project first: `samples/bad/` holds the eighteen counter-examples
+You don't have to try it on your own project first: `samples/bad/` holds the nineteen counter-examples
 and `java -jar llm-lint.jar samples/bad` reports all of them; `samples/good/` is the corrected code
 and reports nothing.
 
@@ -233,7 +233,7 @@ Without the action, just download the jar:
     java -jar llm-lint.jar --format github src/main/java
 ```
 
-## The eighteen rules
+## The nineteen rules
 
 | ID | Level | Framework | What it catches | What you see when it bites |
 | --- | --- | --- | --- | --- |
@@ -255,6 +255,7 @@ Without the action, just download the jar:
 | LLM016 | error | any | `@Tool` method returning `Mono` / `Flux` | the model gets `Mono@1a2b`, or the whole call 500s |
 | LLM017 | error | any | vector store reads/writes inside a transaction | the connection pool dries up, same as LLM001 |
 | LLM018 | warning | any | `Flux` returned without `produces` | the client still waits, then gets everything at once |
+| LLM019 | warning | any | blocking call inside a `@Tool` method (db, sync HTTP, `sleep`) | the model waits on the tool, the whole response stalls |
 
 Counter-examples, fixes and exact scope for each rule: **[docs/rules.md](docs/rules.md)**.
 `java -jar llm-lint.jar --list-rules` prints this table any time.
@@ -453,7 +454,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.13.1 && git push origin v0.13.1
+git tag v0.14.0 && git push origin v0.14.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a
