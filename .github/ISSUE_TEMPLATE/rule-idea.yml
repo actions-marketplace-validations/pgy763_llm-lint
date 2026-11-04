@@ -1,7 +1,7 @@
 name: 提一条新规则
 description: 你想让 llm-lint 多查一类坑
 title: "[rule idea] "
-labels: ["rule idea"]
+labels: ["enhancement"]
 body:
   - type: markdown
     attributes:

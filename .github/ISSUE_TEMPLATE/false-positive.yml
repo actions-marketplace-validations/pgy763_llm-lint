@@ -1,7 +1,7 @@
 name: 规则误报
 description: 某条规则报了不该报的代码，或者没报该报的
 title: "[rule] "
-labels: ["false positive"]
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
