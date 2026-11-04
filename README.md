@@ -446,6 +446,7 @@ the GitHub Marketplace*、选个分类。这一步只能手工点，勾完这个
 
 ## 相关
 
+- 文档站：<https://pgy763.github.io/llm-lint/> —— [上手](https://pgy763.github.io/llm-lint/start.html)、[各平台接法](https://pgy763.github.io/llm-lint/integrations.html)、[按报错找规则](https://pgy763.github.io/llm-lint/errors.html)、[常见问题](https://pgy763.github.io/llm-lint/faq.html)、[规则手册](https://pgy763.github.io/llm-lint/rules.html)
 - [llm-dev-pitfalls](https://pgy763.github.io/llm-dev-pitfalls/) —— 这份检查器背后的手册，51 条，每条都有报错原文
 - [hello-ai-backend](https://pgy763.github.io/hello-ai-backend/) —— 从接第一个模型开始写的书
 

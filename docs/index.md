@@ -71,9 +71,25 @@ llm-lint --baseline .llm-lint.baseline                        # 之后只看新�
 
 ## 文档
 
-- [规则手册](rules.md) —— 十八条规则，会报的样子、改法、为什么
+**上手**
+
+- [装上，跑一次](start.md) —— 三种装法、退出码、六种输出格式、常用参数
+- [接到各个平台上](integrations.md) —— GitHub Actions、GitLab、Jenkins、pre-commit、Maven
+
+**按问题找**
+
+- [按报错找规则](errors.md) —— 拿着 `NoSuchBeanDefinitionException`、`HikariPool … timed out` 这类原文来对照
+- [常见问题](faq.md) —— 为什么不报、误报怎么办、和 SpotBugs 的区别、会不会联网
+
+**用起来**
+
+- [规则手册](rules.md) —— 十八条规则，会报的样子、改法、判断范围、为什么
 - [配置](config.md) —— `.llm-lint.yml` 的六个键、发现顺序、优先级
 - [基线](baseline.md) —— 存量项目怎么只拦新问题
-- [推广与可见度](promote.md) —— 这个项目希望被搜到的地方（维护者用）
+- [版本历史](changelog.md) —— 每个版本改了什么、哪些变化可能影响你
+
+**维护者**
+
+- [推广与可见度](promote.md) —— 这个项目希望被搜到的地方
 
 源码、releases 和 Marketplace 页面都在 [github.com/pgy763/llm-lint](https://github.com/pgy763/llm-lint)。
