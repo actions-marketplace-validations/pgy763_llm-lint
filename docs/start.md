@@ -1,3 +1,8 @@
+---
+title: 装上，跑一次
+description: 三种装法（jar、GitHub Action、pre-commit）、第一次运行、退出码 0/1/2、六种输出格式和常用参数。
+---
+
 # 装上，跑一次
 
 llm-lint 是一个 jar。**Java 17 以上**，没有别的依赖，不需要在项目里加任何构建插件。

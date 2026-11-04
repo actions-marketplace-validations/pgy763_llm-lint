@@ -1,3 +1,8 @@
+---
+title: 按报错找规则
+description: 拿着 NoSuchBeanDefinitionException、HikariPool 连接超时、Unexpected end-of-input、中文变问号这类原文，直接对到规则。
+---
+
 # 按报错找规则
 
 这一页是给「线上已经出事了，正在搜」的人准备的。左边是你搜到的那句话，右边是大概率的原因和负责拦住它的规则。

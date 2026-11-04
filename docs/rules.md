@@ -1,3 +1,8 @@
+---
+title: 十八条规则
+description: 每条规则会报什么、怎么改、判断范围到哪、为什么这么判——按规则号查。
+---
+
 # 规则
 
 十八条规则，每条都对应一个「上线之后才发现」的具体故障。规则是纯静态的：不需要联网、不需要
@@ -32,6 +37,8 @@ API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型
 <a id="llm001"></a>
 ## LLM001 `@Transactional` 里调模型
 
+**搜这些能找到这条：** `HikariPool-1 - Connection is not available, request timed out`、`接口卡三十秒，日志里全是拿不到连接`
+
 **级别** error · **框架** 通用 · **手册** [事务里调模型拖垮连接池](https://pgy763.github.io/llm-dev-pitfalls/java/事务里调模型拖垮连接池)
 
 ```java
@@ -58,6 +65,8 @@ public String answer(String question) {
 <a id="llm002"></a>
 ## LLM002 单例里共用一份 `ChatMemory`
 
+**搜这些能找到这条：** `用户 A 的名字出现在用户 B 的对话里`、`ChatMemory 串台`
+
 **级别** error · **框架** 通用 · **手册** [多用户共用一份 ChatMemory](https://pgy763.github.io/llm-dev-pitfalls/java/多用户共用一份ChatMemory)
 
 ```java
@@ -82,6 +91,8 @@ public class ChatService {
 <a id="llm003"></a>
 ## LLM003 让容器注入 `ChatClient`
 
+**搜这些能找到这条：** `NoSuchBeanDefinitionException: No qualifying bean of type 'ChatClient'`、`启动就挂，找不到 ChatClient`
+
 **级别** error · **框架** Spring AI · **手册** [注入 ChatClient 找不到 Bean](https://pgy763.github.io/llm-dev-pitfalls/java/注入ChatClient找不到Bean)
 
 ```java
@@ -102,6 +113,8 @@ private ChatClient chatClient;
 
 <a id="llm004"></a>
 ## LLM004 `new SseEmitter()` 没设超时
+
+**搜这些能找到这条：** `AsyncRequestTimeoutException`、`流式回答到三十秒就断`
 
 **级别** error · **框架** 通用 · **手册** [SSE 连接 30 秒断开](https://pgy763.github.io/llm-dev-pitfalls/java/SSE连接30秒断开)
 
@@ -124,6 +137,8 @@ public SseEmitter stream(String q) {
 
 <a id="llm005"></a>
 ## LLM005 流式方法里 `block()` / `collectList()`
+
+**搜这些能找到这条：** `前端一直转圈，最后一次性全出来`、`Flux 里 block() 之后很慢`
 
 **级别** warning · **框架** 通用 · **手册** [WebFlux 里 block 流式结果](https://pgy763.github.io/llm-dev-pitfalls/java/WebFlux里block流式结果)
 
@@ -152,6 +167,8 @@ public Flux<String> stream(String q) {
 <a id="llm006"></a>
 ## LLM006 `produces` 少了 charset
 
+**搜这些能找到这条：** `中文变成 ???`、`SSE 接口 200，只有汉字是坏的`
+
 **级别** warning · **框架** 通用 · **手册** [SSE 响应中文乱码](https://pgy763.github.io/llm-dev-pitfalls/java/SSE响应中文乱码)
 
 ```java
@@ -172,6 +189,8 @@ public Flux<String> stream(String q) {
 <a id="llm007"></a>
 ## LLM007 `maxTokens` 太小
 
+**搜这些能找到这条：** `Unexpected end-of-input`、`maxTokens 太小，工具参数被截断`
+
 **级别** warning · **框架** 通用 · **本页**
 
 ```java
@@ -190,6 +209,8 @@ options.setMaxTokens(128);
 
 <a id="llm008"></a>
 ## LLM008 空 catch 吞掉 `IOException`
+
+**搜这些能找到这条：** `客户端断开之后 token 还在烧`、`写流时的 IOException 被 catch 吞了`
 
 **级别** warning · **框架** 通用 · **手册** [客户端断开后还在写 SSE](https://pgy763.github.io/llm-dev-pitfalls/java/客户端断开后还在写SSE)
 
@@ -214,6 +235,8 @@ try {
 
 <a id="llm009"></a>
 ## LLM009 `@Bean` 建的 HTTP 客户端没配超时
+
+**搜这些能找到这条：** `上游挂了，自己的线程也挂住`、`HTTP 客户端没配 timeout`
 
 **级别** warning · **框架** 通用 · **手册** [请求挂死：超时太长](https://pgy763.github.io/llm-dev-pitfalls/endpoint/请求挂死超时太长)
 
@@ -241,6 +264,8 @@ public WebClient webClient() {
 <a id="llm010"></a>
 ## LLM010 硬编码的 API key
 
+**搜这些能找到这条：** `sk-...`、`AIza...`
+
 **级别** error · **框架** 通用 · **手册** [密钥提交进了 git 历史](https://pgy763.github.io/llm-dev-pitfalls/auth/密钥提交进了git历史)
 
 ```java
@@ -260,6 +285,8 @@ private static final String API_KEY = "sk-proj-AbCdEf0123456789";
 
 <a id="llm011"></a>
 ## LLM011 每个请求都新建 `ChatClient` / `ChatModel`
+
+**搜这些能找到这条：** `连接池反复重建、端口耗尽`、`每个请求都 new 一个 ChatClient`
 
 **级别** error · **框架** 通用 · **本页**
 
@@ -284,6 +311,8 @@ public String answer(String question) {
 <a id="llm012"></a>
 ## LLM012 每个请求都新建 `AiServices`
 
+**搜这些能找到这条：** `启动慢、内存涨`、`每个请求都重建 AiServices`
+
 **级别** error · **框架** LangChain4j · **本页**
 
 ```java
@@ -302,6 +331,8 @@ public Assistant assistant() {
 
 <a id="llm013"></a>
 ## LLM013 循环里逐个调模型或向量库
+
+**搜这些能找到这条：** `N 条数据要 N 倍时间`、`循环里逐个调模型`
 
 **级别** warning · **框架** 通用 · **本页**
 
@@ -328,6 +359,8 @@ lambda 里。
 <a id="llm014"></a>
 ## LLM014 `ChatMemoryProvider` 用了写死的 id
 
+**搜这些能找到这条：** `所有人共用一份记忆`、`conversationId 写死`
+
 **级别** error · **框架** LangChain4j · **手册** [多用户共用一份 ChatMemory](https://pgy763.github.io/llm-dev-pitfalls/java/多用户共用一份ChatMemory)
 
 ```java
@@ -346,6 +379,8 @@ id 写死了」。代码形态上已经「隔离」了，实际还是全站一�
 
 <a id="llm015"></a>
 ## LLM015 事务方法返回 `Flux` / `Mono`
+
+**搜这些能找到这条：** `@Transactional 里的 Flux 不回滚`、`rollback 不生效`
 
 **级别** warning · **框架** 通用 · **本页**
 
@@ -369,6 +404,8 @@ public Flux<String> saveAll(List<String> rows) {
 <a id="llm016"></a>
 ## LLM016 `@Tool` 方法返回 `Mono` / `Flux`
 
+**搜这些能找到这条：** `模型说「收到了 Mono@1a2b」`、`@Tool 方法返回 Mono`
+
 **级别** error · **框架** 通用 · **本页**
 
 ```java
@@ -390,6 +427,8 @@ public Mono<String> orderStatus(String orderId) {
 <a id="llm017"></a>
 ## LLM017 事务里查/写向量库
 
+**搜这些能找到这条：** `事务里 vectorStore.add 之后连接池超时`、`RAG 写入拖垮连接池`
+
 **级别** error · **框架** 通用 · **本页**
 
 ```java
@@ -410,6 +449,8 @@ public void ingest(String title, String body) {
 
 <a id="llm018"></a>
 ## LLM018 流式接口没声明 `produces`
+
+**搜这些能找到这条：** `流式接口没写 produces`、`前端等很久，最后一次性全出来`
 
 **级别** warning · **框架** 通用 · **本页**
 

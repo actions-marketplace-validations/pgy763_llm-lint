@@ -1,3 +1,8 @@
+---
+title: llm-lint —— Spring AI / LangChain4j 的静态检查
+description: 18 条规则，拦住事务里调模型、共享 ChatMemory、SSE 30 秒断流、maxTokens 截断、密钥硬编码这些上线才会发现的坑。不联网、不要 API key、不要 classpath。
+---
+
 # llm-lint
 
 扫一遍 Spring AI / LangChain4j 的 Java 代码，在 commit 之前拦住那些人到线上才会发现的问题：事务里调模型、单例里放 `ChatMemory`、SSE 三十秒断流、`maxTokens` 把工具参数截断、密钥硬编码。

@@ -8,3 +8,9 @@ plugins:
   - jekyll-relative-links
 exclude:
   - promote.md
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: https://pgy763.github.io/llm-lint/assets/og.png
+      author: pgy763

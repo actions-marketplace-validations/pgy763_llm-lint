@@ -1,3 +1,8 @@
+---
+title: 版本历史
+description: 每个版本改了什么，哪些变化可能影响已经接入的仓库。
+---
+
 # 版本历史
 
 每个版本都有对应的 [release](https://github.com/pgy763/llm-lint/releases)，jar 在 `releases/latest/download/llm-lint.jar`。0.x 期间小版本可能带行为变化，接进 CI 的仓库建议看一眼下面的「可能影响你」。

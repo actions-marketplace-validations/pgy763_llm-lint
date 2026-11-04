@@ -1,3 +1,8 @@
+---
+title: 接到各个平台上
+description: GitHub Actions、GitLab CI、Jenkins、pre-commit、Maven 的接法，以及 action 的十二个输入。
+---
+
 # 接到各个平台上
 
 所有平台都用同一个 jar，区别只在「怎么拿到 jar」和「报告喂给谁」。
