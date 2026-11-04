@@ -29,7 +29,7 @@ $EDITOR .llm-lint.yml             # 按需去掉 # 号
 java -jar llm-lint.jar src/main/java
 ```
 
-一个真的在用的配置长这样（就是 [`samples/config-demo`](../samples/config-demo) 里那份）：
+一个真的在用的配置长这样（就是 [`samples/config-demo`](https://github.com/pgy763/llm-lint/tree/main/samples/config-demo) 里那份）：
 
 ```yaml
 version: 1

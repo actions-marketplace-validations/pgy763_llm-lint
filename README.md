@@ -190,6 +190,17 @@ permissions:
     sarif_file: llm-lint.sarif
 ```
 
+只认 JUnit 报告的 CI（Jenkins、GitLab CI）：
+
+```yaml
+- run: java -jar llm-lint.jar --format junit src/main/java > llm-lint.xml || true
+# GitLab：artifacts:reports:junit: [llm-lint.xml]
+# Jenkins：junit 'llm-lint.xml'
+```
+
+error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（不拦构建），和默认退出码
+一个口径。想发给别人看、或者留个存档：`--format html`，CSS 全内联，双击就能打开，不联网。
+
 不用 action 的话，直接下 jar：
 
 ```yaml
@@ -231,15 +242,16 @@ permissions:
 ## 用法
 
 ```
-llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
+llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|never]
          [--min-severity info|warning|error] [--disable LLM004,LLM009]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
-         [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
+         [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--init-hook [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>] [--fix]
-         [--explain LLM001] [--list-rules] <path...>
+         [--lang <zh|en>] [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
+                  / junit（Jenkins / GitLab 认的报告）/ html（一份能双击打开的页面）
   --fail-on       error（默认）/ warning（警告也卡）/ never（只报告，不失败）
   --min-severity  低于这个级别的不报也不计
   --disable       不跑的规则；某条规则在你项目里是误报就关掉它
@@ -249,6 +261,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --no-config     不读配置文件
   --init          在当前目录写一份带注释的 .llm-lint.yml
   --init-ci       在 .github/workflows/ 下写一份 GitHub Actions 配置
+  --init-hook     在 .git/hooks/ 下写一个 pre-commit，只扫 staged 的 .java
   --print-config  打印实际生效的配置（含默认值），可以存回当配置文件
   --baseline      读这份基线，清单里的旧问题不再报（也见配置里的 baseline:）
   --save-baseline 把这次的问题并进这份基线；已有条目一条不删
@@ -258,12 +271,29 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
   --since         只扫这个 git 引用以来改动的文件，如 origin/main、HEAD~1
   --fix           不打印报告，改为输出 unified diff（目前 LLM006 / LLM018 有补丁）
+  --lang          zh（默认）/ en；只换人看的文字，JSON 字段名不变
   --explain       一条规则的级别、框架、理由、抑制方式
 ```
 
 `<path>` 可以是目录，也可以是单个 `.java`。目录会递归找 `.java`，跳过 `target/` 和 `build/`。
 文件是并行解析的（默认最多 8 个线程），输出顺序和串行完全一样，大仓库快一倍上下；
 机器吃紧或想复现某个顺序时加 `--jobs 1`。
+
+### 英文输出和机器可读的规则
+
+CI 是给整个团队看的，或者你习惯英文：加 `--lang en`（也可以设环境变量 `LLM_LINT_LANG=en`）。
+帮助、报告、摘要、PR 评论、`--explain` 的说明都会换成英文；JSON / SARIF 的字段名和值不动，
+下游脚本不会因为换语言而坏掉。
+
+编辑器插件、内部看板、文档生成器要规则清单时，用机器可读的版本：
+
+```bash
+llm-lint --list-rules --format json
+```
+
+每条规则一个对象：`id`、`title`、`severity`（规则自带默认级别）、`level`（这次实际生效的级别，
+配置文件和 `--disable` 都会体现在这里，关掉就是 `off`）、`framework`、`why`、`docUrl`、
+`fixable`（能不能被 `--fix` 自动修）。
 
 ### 只扫这次改动的文件
 
@@ -298,6 +328,23 @@ SseEmitter emitter = new SseEmitter();
 - `// llm-lint:ignore` —— 压掉该行全部问题
 - `// llm-lint:ignore LLM004,LLM009` —— 只压这几条
 - `// llm-lint:ignore-file` —— 整个文件不报
+
+### 提交前就跑一遍
+
+不想等 CI 才发现：`--init-hook` 在 `.git/hooks/pre-commit` 写一个钩子，只扫这次 `git add`
+的 `.java` 文件，有 error 就拦下提交。
+
+```bash
+java -jar llm-lint.jar --init-hook        # 写进当前仓库
+```
+
+钩子调的是 `llm-lint` 命令；机器上没装会打印一行提示然后放行，不会把人卡死。要用某个 jar：
+
+```bash
+LLM_LINT="java -jar tools/llm-lint.jar" git commit -m "..."   # 只对这一次生效
+```
+
+临时绕过：`git commit --no-verify`。已经有 `pre-commit` 时它不覆盖，会提示你先合并。
 
 ### 让工具直接给补丁
 
@@ -368,6 +415,8 @@ java -jar target/llm-lint.jar --list-rules
 - `samples/config-demo/` —— 三个反例 + 一份 `.llm-lint.yml`，配好之后必须**只剩一条** error
 - `BaselineTest` / `BaselineCliTest` —— 基线：旧问题存进去后退出 0，新犯的照样退出 1
 - `ExcludeTest` / `SummaryCliTest` / `MarkdownReportTest` / `MarkdownCliTest` / `InitCiTest` / `ChangedFilesTest` / `SinceCliTest` / `FixerTest` / `FixCliTest` —— 相对路径排除、摘要/评论文件、`--init-ci`、`--since` 的改动文件计算
+- `LangTest` / `RuleCatalogTest` —— 英文输出（帮助、报告、统计）与 `--list-rules --format json` 的字段
+- `JUnitReportTest` / `HtmlReportTest` / `InitHookTest` / `ReportFormatsCliTest` —— junit / html 报告与 pre-commit 钩子
 
 改规则先改前三个目录。CI 还会用自己发布的 action 扫一遍 `samples/good`（必须通过）、
 `samples/bad`（必须失败）和 `samples/config-demo`（带着仓库配置也必须失败），确保「别人拿到
@@ -378,7 +427,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.9.1 && git push origin v0.9.1
+git tag v0.11.0 && git push origin v0.11.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

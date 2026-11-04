@@ -6,6 +6,8 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Rule;
+import io.github.pgy763.llmlint.lang.Lang;
+import io.github.pgy763.llmlint.lang.Messages;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
@@ -69,7 +71,7 @@ public final class LintEngine {
         int suppressed = 0;
         for (Partial partial : partials) {
             if (partial.parseFailed()) {
-                System.err.println("跳过（解析失败）: " + partial.file());
+                System.err.println(Messages.f("跳过（解析失败）: %s", "skipped (parse failed): %s", partial.file()));
                 skipped++;
                 continue;
             }
@@ -95,6 +97,7 @@ public final class LintEngine {
         }
 
         int threads = Math.min(jobs, files.size());
+        Lang lang = Messages.lang();
         ExecutorService pool = Executors.newFixedThreadPool(threads, r -> {
             Thread thread = new Thread(r, "llm-lint-scan");
             thread.setDaemon(true);
@@ -103,7 +106,10 @@ public final class LintEngine {
         try {
             List<Future<Partial>> futures = new ArrayList<>(files.size());
             for (Path file : files) {
-                futures.add(pool.submit(() -> scan(file, sources, threadParsers.get())));
+                futures.add(pool.submit(() -> {
+                    Messages.use(lang);
+                    return scan(file, sources, threadParsers.get());
+                }));
             }
             // 按 files 的顺序收：日志里的「跳过（解析失败）」和最终排序都不受调度影响。
             List<Partial> out = new ArrayList<>(files.size());
@@ -112,10 +118,10 @@ public final class LintEngine {
                     out.add(future.get());
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw new IOException("扫描被中断", e);
+                    throw new IOException(Messages.t("扫描被中断", "scan interrupted"), e);
                 } catch (ExecutionException e) {
                     Throwable cause = e.getCause() == null ? e : e.getCause();
-                    throw new IOException("扫描失败：" + cause, cause);
+                    throw new IOException(Messages.f("扫描失败：%s", "scan failed: %s", cause), cause);
                 }
             }
             return out;
@@ -163,7 +169,7 @@ public final class LintEngine {
                 continue;
             }
             if (!Files.isDirectory(root)) {
-                System.err.println("找不到: " + root);
+                System.err.println(Messages.f("找不到: %s", "not found: %s", root));
                 continue;
             }
             try (Stream<Path> walk = Files.walk(root)) {

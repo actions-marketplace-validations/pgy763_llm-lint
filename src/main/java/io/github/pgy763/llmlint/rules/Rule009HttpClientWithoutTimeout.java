@@ -6,6 +6,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -31,7 +32,7 @@ public final class Rule009HttpClientWithoutTimeout extends AbstractRule {
 
     @Override
     public String title() {
-        return "HTTP 客户端没配超时";
+        return Messages.t("HTTP 客户端没配超时", "HTTP client without a timeout");
     }
 
     @Override
@@ -46,7 +47,10 @@ public final class Rule009HttpClientWithoutTimeout extends AbstractRule {
 
     @Override
     public String why() {
-        return "没设超时的 HTTP 客户端默认等到天荒地老。对端不回，请求线程就一直挂着，最后是线程池先满。";
+        return Messages.t(
+                "没设超时的 HTTP 客户端默认等到天荒地老。对端不回，请求线程就一直挂着，最后是线程池先满。",
+                "An HTTP client with no timeout waits forever by default. If the peer never"
+                        + " answers, the request thread hangs, and the thread pool fills up first.");
     }
 
     @Override
@@ -65,11 +69,17 @@ public final class Rule009HttpClientWithoutTimeout extends AbstractRule {
             if (configured) {
                 continue;
             }
-            out.add(at(file, m,
-                    "`@Bean " + returnType + " " + m.getNameAsString() + "(...)` 里没有一处超时设置。"
+            out.add(at(file, m, Messages.f(
+                    "`@Bean %s %s(...)` 里没有一处超时设置。"
                             + "这类客户端的读超时默认是「不限」——上游不回，你的线程就一直等，"
                             + "既不报错也不释放。在这里补 `connectTimeout` + `readTimeout`；"
-                            + "如果别处有统一配置（比如全局 HttpClient 定制），加 `--disable LLM009`。"));
+                            + "如果别处有统一配置（比如全局 HttpClient 定制），加 `--disable LLM009`。",
+                    "`@Bean %s %s(...)` configures no timeout anywhere. These clients default to no"
+                            + " read timeout — if the upstream doesn't answer, your thread waits"
+                            + " forever, neither failing nor being released. Add `connectTimeout` +"
+                            + " `readTimeout` here; if timeouts are configured centrally (e.g. a"
+                            + " global HttpClient customizer), add `--disable LLM009`.",
+                    returnType, m.getNameAsString())));
         }
         return out;
     }

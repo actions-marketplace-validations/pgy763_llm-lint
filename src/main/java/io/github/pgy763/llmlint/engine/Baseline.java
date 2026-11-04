@@ -1,6 +1,7 @@
 package io.github.pgy763.llmlint.engine;
 
 import io.github.pgy763.llmlint.Finding;
+import io.github.pgy763.llmlint.lang.Messages;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -46,7 +47,8 @@ public final class Baseline {
      */
     public static Baseline load(Path file) throws IOException {
         if (!Files.isRegularFile(file)) {
-            throw new IOException("找不到基线文件：" + file + "（先用 --save-baseline 生成一份）");
+            throw new IOException(Messages.f("找不到基线文件：%s（先用 --save-baseline 生成一份）",
+                    "Baseline file not found: %s (generate one with --save-baseline first)", file));
         }
         Set<String> entries = new LinkedHashSet<>();
         List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
@@ -58,7 +60,10 @@ public final class Baseline {
             String[] parts = text.split(String.valueOf(SEP), -1);
             if (parts.length != 3) {
                 throw new IOException(file + ":" + (i + 1)
-                        + ": 基线每行要有三列（规则、文件、消息），这行是「" + text + "」");
+                        + Messages.f(": 基线每行要有三列（规则、文件、消息），这行是「%s」",
+                        ": every baseline line needs three columns (rule, file, message), "
+                                + "this one is \"%s\"",
+                        text));
             }
             entries.add(parts[0] + SEP + parts[1] + SEP + parts[2]);
         }

@@ -5,6 +5,7 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -25,7 +26,7 @@ public final class Rule016ToolReturnsReactive extends AbstractRule {
 
     @Override
     public String title() {
-        return "工具方法返回响应式类型";
+        return Messages.t("工具方法返回响应式类型", "Tool method returns a reactive type");
     }
 
     @Override
@@ -40,7 +41,12 @@ public final class Rule016ToolReturnsReactive extends AbstractRule {
 
     @Override
     public String why() {
-        return "模型调用工具时，框架要的是一段能直接塞回上下文的结果。返回 Mono/Flux 时没人替你订阅：轻则模型拿到对象的 toString，重则序列化失败、整轮对话 500。";
+        return Messages.t(
+                "模型调用工具时，框架要的是一段能直接塞回上下文的结果。返回 Mono/Flux 时没人替你订阅：轻则模型拿到对象的 toString，重则序列化失败、整轮对话 500。",
+                "When the model calls a tool, the framework wants a result it can put straight back"
+                        + " into the context. Return Mono/Flux and nobody subscribes for you: at best"
+                        + " the model gets the object's toString, at worst serialization fails and"
+                        + " the whole turn returns 500.");
     }
 
     @Override
@@ -54,11 +60,18 @@ public final class Rule016ToolReturnsReactive extends AbstractRule {
             if (!REACTIVE.contains(returnType)) {
                 continue;
             }
-            out.add(at(file, m,
-                    "`" + m.getNameAsString() + "` 是 `@Tool`，却返回 `" + returnType + "`。"
+            out.add(at(file, m, Messages.f(
+                    "`%s` 是 `@Tool`，却返回 `%s`。"
                             + "工具调用要的是结果本身，框架不会订阅这个流：轻则模型收到 `"
-                            + returnType + "@1a2b` 这样的字符串，重则序列化失败、整轮对话 500。"
-                            + "工具方法改成同步返回，里面要调远程就先算完再 return。"));
+                            + "%s@1a2b` 这样的字符串，重则序列化失败、整轮对话 500。"
+                            + "工具方法改成同步返回，里面要调远程就先算完再 return。",
+                    "`%s` is a `@Tool` but returns `%s`. A tool call needs the result itself and"
+                            + " the framework will not subscribe to the stream: at best the model"
+                            + " receives a string like `%s@1a2b`, at worst serialization fails and"
+                            + " the whole turn returns 500. Make the tool method return"
+                            + " synchronously; if it calls something remote, finish that call before"
+                            + " returning.",
+                    m.getNameAsString(), returnType, returnType)));
         }
         return out;
     }

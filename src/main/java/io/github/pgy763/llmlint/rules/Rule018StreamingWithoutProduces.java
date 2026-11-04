@@ -7,6 +7,7 @@ import com.github.javaparser.ast.expr.MemberValuePair;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -29,7 +30,7 @@ public final class Rule018StreamingWithoutProduces extends AbstractRule {
 
     @Override
     public String title() {
-        return "流式接口没声明 produces";
+        return Messages.t("流式接口没声明 produces", "Streaming endpoint without produces");
     }
 
     @Override
@@ -44,7 +45,12 @@ public final class Rule018StreamingWithoutProduces extends AbstractRule {
 
     @Override
     public String why() {
-        return "返回 Flux 但没写 produces，Spring 会按 Jackson 的 JSON 走：先收完整个流再一次性写出去，代理也更容易把响应攒着——流式就白开了。";
+        return Messages.t(
+                "返回 Flux 但没写 produces，Spring 会按 Jackson 的 JSON 走：先收完整个流再一次性写出去，代理也更容易把响应攒着——流式就白开了。",
+                "Returning Flux without produces makes Spring go through the Jackson JSON"
+                        + " converter: it drains the whole stream and writes it out at once, and"
+                        + " proxies are more likely to buffer the response — streaming was enabled"
+                        + " for nothing.");
     }
 
     @Override
@@ -63,11 +69,18 @@ public final class Rule018StreamingWithoutProduces extends AbstractRule {
                 continue;
             }
             out.add(at(file, m,
-                    "`" + m.getNameAsString() + "` 返回 `" + returnType + "`，但 `"
-                            + mapping.getNameAsString() + "` 没写 `produces`。"
-                            + "Spring 会按 JSON 的转换器走：先把整个流收完，再一次性写出去，"
-                            + "中间件也更容易把响应攒着——客户端看到的还是「等很久，然后全出来」。"
-                            + "写成 `produces = MediaType.TEXT_EVENT_STREAM_VALUE`。",
+                    Messages.f(
+                            "`%s` 返回 `%s`，但 `%s` 没写 `produces`。"
+                                    + "Spring 会按 JSON 的转换器走：先把整个流收完，再一次性写出去，"
+                                    + "中间件也更容易把响应攒着——客户端看到的还是「等很久，然后全出来」。"
+                                    + "写成 `produces = MediaType.TEXT_EVENT_STREAM_VALUE`。",
+                            "`%s` returns `%s`, but `%s` has no `produces`. Spring goes through the"
+                                    + " JSON converter: it drains the whole stream and writes it out"
+                                    + " in one go, and middleware is more likely to buffer the"
+                                    + " response — the client still sees \"a long wait, then"
+                                    + " everything at once\". Write"
+                                    + " `produces = MediaType.TEXT_EVENT_STREAM_VALUE`.",
+                            m.getNameAsString(), returnType, mapping.getNameAsString()),
                     fix(mapping, withProduces(mapping))));
         }
         return out;

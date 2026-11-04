@@ -7,6 +7,7 @@ import com.github.javaparser.ast.stmt.TryStmt;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -26,7 +27,7 @@ public final class Rule008SwallowedIoException extends AbstractRule {
 
     @Override
     public String title() {
-        return "空的 catch 吞掉 IOException";
+        return Messages.t("空的 catch 吞掉 IOException", "Empty catch swallows IOException");
     }
 
     @Override
@@ -41,7 +42,11 @@ public final class Rule008SwallowedIoException extends AbstractRule {
 
     @Override
     public String why() {
-        return "catch 里什么都不做，等于把「写失败」当成「写成功」。连接断了也看不出来，日志干净，用户那头停在半句。";
+        return Messages.t(
+                "catch 里什么都不做，等于把「写失败」当成「写成功」。连接断了也看不出来，日志干净，用户那头停在半句。",
+                "Doing nothing in the catch treats a failed write as a successful one. A dropped"
+                        + " connection is invisible, the log stays clean, and the user is left with"
+                        + " half a sentence.");
     }
 
     @Override
@@ -63,11 +68,17 @@ public final class Rule008SwallowedIoException extends AbstractRule {
             if (!writes) {
                 continue;
             }
-            out.add(at(file, c,
-                    "`catch (" + caught + " ignored)` 是空的，而 try 里在往连接上写。"
+            out.add(at(file, c, Messages.f(
+                    "`catch (%s ignored)` 是空的，而 try 里在往连接上写。"
                             + "客户端断开时 `write` 会抛 IOException——被吞掉之后循环继续跑到结束，"
                             + "看起来一切正常，日志里一条都没有。"
-                            + "至少 `break` 出去；要排查就把断连和真正的写失败分开记。"));
+                            + "至少 `break` 出去；要排查就把断连和真正的写失败分开记。",
+                    "`catch (%s ignored)` is empty, and the try block writes to the connection."
+                            + " When the client disconnects, `write` throws IOException — swallowed,"
+                            + " the loop keeps running to the end, everything looks fine and nothing"
+                            + " lands in the log. At least `break` out; to diagnose properly, log"
+                            + " disconnects and real write failures separately.",
+                    caught)));
         }
         return out;
     }

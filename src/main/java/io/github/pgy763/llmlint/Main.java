@@ -11,8 +11,13 @@ import io.github.pgy763.llmlint.engine.LintEngine;
 import io.github.pgy763.llmlint.engine.LintResult;
 import io.github.pgy763.llmlint.engine.SourceCache;
 import io.github.pgy763.llmlint.report.GitHubReport;
+import io.github.pgy763.llmlint.lang.Lang;
+import io.github.pgy763.llmlint.lang.Messages;
+import io.github.pgy763.llmlint.report.HtmlReport;
 import io.github.pgy763.llmlint.report.JsonReport;
+import io.github.pgy763.llmlint.report.JUnitReport;
 import io.github.pgy763.llmlint.report.MarkdownReport;
+import io.github.pgy763.llmlint.report.RuleCatalog;
 import io.github.pgy763.llmlint.report.SarifReport;
 import io.github.pgy763.llmlint.report.SummaryReport;
 import io.github.pgy763.llmlint.report.TextReport;
@@ -32,6 +37,7 @@ import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -46,96 +52,105 @@ import java.util.stream.Collectors;
         name = "llm-lint",
         mixinStandardHelpOptions = true,
         versionProvider = Main.Version.class,
-        description = "扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住最贵的那些坑。")
+        description = "Scans Spring AI / LangChain4j code and catches the expensive mistakes before they ship.")
 public final class Main implements Callable<Integer> {
 
     @Spec
     private CommandSpec spec;
 
     @Parameters(arity = "0..*", paramLabel = "<path>",
-            description = "要扫的目录或 .java 文件")
+            description = "Directories or .java files to scan")
     private List<Path> paths = new ArrayList<>();
 
     @Option(names = "--format", defaultValue = "text",
-            description = "输出格式：text（默认）、json、github（Actions 注解）、sarif（Code Scanning）")
+            description = "Output format: text (default), json, github (Actions annotations), sarif (Code Scanning), "
+                    + "junit (JUnit XML for Jenkins/GitLab), html (standalone page)")
     private String format = "text";
 
     @Option(names = "--fail-on", defaultValue = "error",
-            description = "什么级别算失败：error（默认）、warning、never；命令行赢了配置文件")
+            description = "Which level fails the run: error (default), warning, never; the command line wins over the config file")
     private String failOn = "error";
 
     @Option(names = "--min-severity", defaultValue = "info",
-            description = "低于这个级别的不报也不计：info（默认）、warning、error")
+            description = "Findings below this level are neither reported nor counted: info (default), warning, error")
     private String minSeverity = "info";
 
     @Option(names = "--disable", split = ",",
-            description = "不跑的规则，逗号分隔，如 LLM004,LLM009；长期关掉请写进 .llm-lint.yml")
+            description = "Rules not to run, comma separated, e.g. LLM004,LLM009; prefer .llm-lint.yml for permanent switches")
     private List<String> disable = new ArrayList<>();
 
     @Option(names = "--exclude", split = ",",
-            description = "不扫的路径，逗号分隔，如 **/generated/**,**/test/java/**")
+            description = "Paths not to scan, comma separated, e.g. **/generated/**,**/test/java/**")
     private List<String> exclude = new ArrayList<>();
 
     @Option(names = "--jobs", paramLabel = "<n>",
-            description = "同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来")
+            description = "How many files to scan at once: CPU count by default (max 8), 1 = one at a time")
     private int jobs;
 
     @Option(names = "--since", paramLabel = "<ref>",
-            description = "只扫从这个 git 引用以来改动的 .java 文件，如 origin/main、HEAD~1")
+            description = "Only scan .java files changed since this git ref, e.g. origin/main, HEAD~1")
     private String since;
 
     @Option(names = "--config", paramLabel = "<file>",
-            description = "配置文件；默认从当前目录往上找 .llm-lint.yml")
+            description = "Config file; by default .llm-lint.yml is discovered by walking up from the current directory")
     private Path configFile;
 
-    @Option(names = "--no-config", description = "不读配置文件，只用命令行参数")
+    @Option(names = "--no-config", description = "Don't read any config file, use command-line options only")
     private boolean noConfig;
 
-    @Option(names = "--init", description = "在当前目录写一份带注释的 .llm-lint.yml 后退出")
+    @Option(names = "--init", description = "Write a commented .llm-lint.yml in the current directory and exit")
     private boolean init;
 
     @Option(names = "--init-ci", arity = "0..1", paramLabel = "<dir>",
-            description = "在 <dir>/.github/workflows/ 下写一份 GitHub Actions 配置（默认当前目录）")
+            description = "Write a GitHub Actions workflow under <dir>/.github/workflows/ (default: current directory)")
     private Path initCi;
 
-    @Option(names = "--print-config", description = "打印实际生效的配置（含默认值）后退出")
+    @Option(names = "--init-hook", arity = "0..1", paramLabel = "<dir>",
+            description = "Write a pre-commit hook that lints staged .java files (default: current directory)")
+    private Path initHook;
+
+    @Option(names = "--print-config", description = "Print the effective config (with defaults) and exit")
     private boolean printConfig;
 
     @Option(names = "--baseline", paramLabel = "<file>",
-            description = "只报不在这个基线里的问题；旧问题记在文件里，不卡 CI（见 docs/baseline.md）")
+            description = "Only report findings that are not in this baseline; known issues stay in the file and don't block CI (see docs/baseline.md)")
     private Path baselineFile;
 
     @Option(names = "--save-baseline", paramLabel = "<file>",
-            description = "把这次的结果记进基线文件（已有的保留），给存量项目开个头")
+            description = "Merge this run's findings into the baseline file (existing entries are kept)")
     private Path saveBaseline;
 
     @Option(names = "--baseline-stats",
-            description = "打印基线里还剩多少条、已经修好多少条（需要 --baseline 或配置里的 baseline:）")
+            description = "Show how many baseline entries remain and how many were fixed (needs --baseline or baseline: in config)")
     private boolean baselineStats;
 
     @Option(names = "--summary", paramLabel = "<file>",
-            description = "把一段 Markdown 摘要写进文件（适合 GitHub Actions 的 step summary）")
+            description = "Write a Markdown summary to a file (great for GitHub Actions step summaries)")
     private Path summary;
 
     @Option(names = "--markdown", paramLabel = "<file>",
-            description = "把「一条问题一行」的 Markdown 明细写进文件（给 PR 评论用，Action 会原地更新）")
+            description = "Write one row per finding as Markdown (the Action posts it as a sticky PR comment)")
     private Path markdown;
 
     @Option(names = "--fix",
-            description = "不打印报告，改为输出一份 unified diff（目前 LLM006 / LLM018 有补丁）")
+            description = "Don't print a report; print a unified diff instead (LLM006 / LLM018 have patches today)")
     private boolean fix;
 
-    @Option(names = "--no-context", description = "text 格式下不打印源码行")
+    @Option(names = "--no-context", description = "Don't print the source line in text format")
     private boolean noContext;
 
-    @Option(names = "--quiet", description = "不打印最后那行统计")
+    @Option(names = "--quiet", description = "Don't print the final summary line")
     private boolean quiet;
 
-    @Option(names = "--list-rules", description = "列出全部规则后退出")
+    @Option(names = "--lang", paramLabel = "<zh|en>",
+            description = "Language for human-readable output: zh (default) or en; also LLM_LINT_LANG")
+    private String lang;
+
+    @Option(names = "--list-rules", description = "List every rule and exit")
     private boolean listRules;
 
     @Option(names = "--explain", paramLabel = "<ID>",
-            description = "详细说明一条规则，如 --explain LLM001")
+            description = "Explain one rule, e.g. --explain LLM001")
     private String explain;
 
     @Override
@@ -143,11 +158,25 @@ public final class Main implements Callable<Integer> {
         PrintWriter out = spec.commandLine().getOut();
         PrintWriter err = spec.commandLine().getErr();
 
+        String langValue = lang;
+        if (langValue == null || langValue.isBlank()) {
+            langValue = System.getenv("LLM_LINT_LANG");
+        }
+        try {
+            Messages.use(Lang.of(langValue));
+        } catch (IllegalArgumentException e) {
+            err.println("llm-lint: unknown language \"" + lang + "\" (supported: zh, en)");
+            return 2;
+        }
+
         if (init) {
             return writeInit(out, err);
         }
         if (initCi != null) {
             return writeInitCi(out, err, initCi);
+        }
+        if (initHook != null) {
+            return writeInitHook(out, err, initHook);
         }
 
         List<Rule> canonical = Rules.all();
@@ -170,6 +199,11 @@ public final class Main implements Callable<Integer> {
         }
 
         if (listRules) {
+            if ("json".equalsIgnoreCase(format)) {
+                out.print(RuleCatalog.format(canonical, config, new HashSet<>(disable)));
+                out.flush();
+                return 0;
+            }
             Set<String> active = new HashSet<>();
             rules.forEach(r -> active.add(r.id()));
             for (Rule r : canonical) {
@@ -193,8 +227,9 @@ public final class Main implements Callable<Integer> {
         }
 
         if (paths.isEmpty() && since == null) {
-            err.println("要给一个目录或 .java 文件，比如：llm-lint src/main/java");
-            err.println("看全部规则：llm-lint --list-rules");
+            err.println(Messages.t("要给一个目录或 .java 文件，比如：llm-lint src/main/java",
+                    "Give it a directory or a .java file, e.g. llm-lint src/main/java"));
+            err.println(Messages.t("看全部规则：llm-lint --list-rules", "See all rules: llm-lint --list-rules"));
             return 2;
         }
         boolean explicitPaths = !paths.isEmpty();
@@ -205,8 +240,11 @@ public final class Main implements Callable<Integer> {
 
         Path baselinePath = resolveBaseline(config);
         if (baselineStats && baselinePath == null) {
-            err.println("llm-lint: --baseline-stats 得先有一份基线：加 --baseline <file>，"
-                    + "或者在 .llm-lint.yml 里写 baseline:");
+            err.println(Messages.t(
+                    "llm-lint: --baseline-stats 得先有一份基线：加 --baseline <file>，"
+                            + "或者在 .llm-lint.yml 里写 baseline:",
+                    "llm-lint: --baseline-stats needs a baseline: pass --baseline <file> "
+                            + "or set baseline: in .llm-lint.yml"));
             return 2;
         }
         Baseline baseline = Baseline.empty();
@@ -220,7 +258,8 @@ public final class Main implements Callable<Integer> {
         }
 
         if (jobs < 0) {
-            err.println("llm-lint: --jobs 不能是负数：1 表示一个一个扫，不写就按 CPU 核数来");
+            err.println(Messages.t("llm-lint: --jobs 不能是负数：1 表示一个一个扫，不写就按 CPU 核数来",
+                    "llm-lint: --jobs cannot be negative; 1 means one file at a time, omit it to use the CPU count"));
             return 2;
         }
         int threads = jobs == 0 ? Math.min(Runtime.getRuntime().availableProcessors(), 8) : jobs;
@@ -240,9 +279,11 @@ public final class Main implements Callable<Integer> {
             if (toScan.isEmpty()) {
                 if (!quiet) {
                     if (explicitPaths) {
-                        err.printf("llm-lint: --since %s 以来，这些路径下没有改动的 .java 文件%n", since);
+                        err.printf(Messages.t("llm-lint: --since %s 以来，这些路径下没有改动的 .java 文件%n",
+                                    "llm-lint: no .java files changed under these paths since %s%n"), since);
                     } else {
-                        err.printf("llm-lint: --since %s 以来没有改动的 .java 文件%n", since);
+                        err.printf(Messages.t("llm-lint: --since %s 以来没有改动的 .java 文件%n",
+                                    "llm-lint: no .java files changed since %s%n"), since);
                     }
                 }
                 return 0;
@@ -267,12 +308,13 @@ public final class Main implements Callable<Integer> {
                 Baseline merged = base.plus(findings);
                 Baseline.write(merged, saveBaseline);
                 if (!quiet) {
-                    err.printf("llm-lint: 基线 %s（共 %d 条，这次新增 %d 条）%n",
+                    err.printf(Messages.t("llm-lint: 基线 %s（共 %d 条，这次新增 %d 条）%n",
+                                    "llm-lint: baseline %s (%d entries, %d new this run)%n"),
                             ConfigLoader.display(saveBaseline, Path.of("").toAbsolutePath()),
                             merged.size(), merged.size() - base.size());
                 }
             } catch (IOException e) {
-                err.println("llm-lint: 基线写不进去：" + e.getMessage());
+                err.println(Messages.t("llm-lint: 基线写不进去：", "llm-lint: cannot write the baseline: ") + e.getMessage());
                 return 2;
             }
         }
@@ -294,7 +336,8 @@ public final class Main implements Callable<Integer> {
             }
             if (patch.isEmpty()) {
                 if (!findings.isEmpty()) {
-                    err.println("llm-lint: 这些问题没有现成的补丁（目前只有 LLM006 和 LLM018 能自动修）");
+                    err.println(Messages.t("llm-lint: 这些问题没有现成的补丁（目前只有 LLM006 和 LLM018 能自动修）",
+                            "llm-lint: no ready-made patch for these findings (only LLM006 and LLM018 are auto-fixable today)"));
                 }
             } else {
                 out.print(patch);
@@ -305,11 +348,14 @@ public final class Main implements Callable<Integer> {
                 case "json" -> JsonReport.format(findings);
                 case "github" -> GitHubReport.format(findings);
                 case "sarif" -> SarifReport.format(findings, rules);
+                case "junit" -> JUnitReport.format(findings);
+                case "html" -> HtmlReport.format(findings, result.filesScanned());
                 case "text", "default" -> TextReport.format(findings, new SourceCache(), !noContext);
                 default -> null;
             };
             if (output == null) {
-                err.println("不认识的 --format：" + format + "（text / json / github / sarif）");
+                err.println(Messages.f("不认识的 --format：%s（text / json / github / sarif / junit / html）",
+                    "Unknown --format: %s (text / json / github / sarif / junit / html)", format));
                 return 2;
             }
             out.print(output);
@@ -328,7 +374,7 @@ public final class Main implements Callable<Integer> {
                                 known.size(), result.suppressed()),
                         StandardCharsets.UTF_8);
             } catch (IOException e) {
-                err.println("llm-lint: 摘要写不进去：" + e.getMessage());
+                err.println(Messages.t("llm-lint: 摘要写不进去：", "llm-lint: cannot write the summary: ") + e.getMessage());
                 return 2;
             }
         }
@@ -342,19 +388,19 @@ public final class Main implements Callable<Integer> {
                                 known.size(), result.suppressed()),
                         StandardCharsets.UTF_8);
             } catch (IOException e) {
-                err.println("llm-lint: 评论写不进去：" + e.getMessage());
+                err.println(Messages.t("llm-lint: 评论写不进去：", "llm-lint: cannot write the comment: ") + e.getMessage());
                 return 2;
             }
         }
 
         if (!quiet) {
             if (config.file() != null) {
-                err.printf("llm-lint: 配置 %s（%s）%n",
+                err.printf(Messages.t("llm-lint: 配置 %s（%s）%n", "llm-lint: config %s (%s)%n"),
                         ConfigLoader.display(config.file(), Path.of("").toAbsolutePath()),
                         config.summary());
             }
             if (baselinePath != null) {
-                err.printf("llm-lint: 基线 %s（%d 条）%n",
+                err.printf(Messages.t("llm-lint: 基线 %s（%d 条）%n", "llm-lint: baseline %s (%d entries)%n"),
                         ConfigLoader.display(baselinePath, Path.of("").toAbsolutePath()),
                         baseline.size());
             }
@@ -362,15 +408,19 @@ public final class Main implements Callable<Integer> {
             long warnings = findings.stream().filter(f -> f.severity() == Severity.WARNING).count();
             StringBuilder extra = new StringBuilder();
             if (!known.isEmpty()) {
-                extra.append("，另有 ").append(known.size()).append(" 条在基线里");
+                extra.append(Messages.t("，另有 ", ", ")).append(known.size())
+                        .append(Messages.t(" 条在基线里", " more in the baseline"));
             }
             if (result.suppressed() > 0) {
-                extra.append("，抑制 ").append(result.suppressed()).append(" 条");
+                extra.append(Messages.t("，抑制 ", ", ")).append(result.suppressed())
+                        .append(Messages.t(" 条", " suppressed"));
             }
-            err.printf("llm-lint: %d 个问题（%d error / %d warning），扫了 %d 个文件%s%n",
+            err.printf(Messages.t("llm-lint: %d 个问题（%d error / %d warning），扫了 %d 个文件%s%n",
+                            "llm-lint: %d findings (%d error / %d warning), scanned %d files%s%n"),
                     findings.size(), errors, warnings, result.filesScanned(), extra);
             if (result.filesSkipped() > 0) {
-                err.printf("llm-lint: 另有 %d 个文件解析失败被跳过%n", result.filesSkipped());
+                err.printf(Messages.t("llm-lint: 另有 %d 个文件解析失败被跳过%n",
+                            "llm-lint: %d files failed to parse and were skipped%n"), result.filesSkipped());
             }
         }
 
@@ -383,19 +433,23 @@ public final class Main implements Callable<Integer> {
             stale.forEach((ruleId, count) -> remaining.merge(ruleId, -count, Integer::sum));
             remaining.values().removeIf(count -> count <= 0);
 
-            err.printf("llm-lint: 基线 %s：共 %d 条，还在报 %d 条%n",
+            err.printf(Messages.t("llm-lint: 基线 %s：共 %d 条，还在报 %d 条%n",
+                            "llm-lint: baseline %s: %d entries, %d still reported%n"),
                     ConfigLoader.display(baselinePath, Path.of("").toAbsolutePath()),
                     baseline.size(), baseline.size() - staleCount);
             if (!remaining.isEmpty()) {
-                err.printf("llm-lint:   按规则：%s%n", formatCounts(remaining));
+                err.printf(Messages.t("llm-lint:   按规则：%s%n", "llm-lint:   by rule: %s%n"), formatCounts(remaining));
             } else if (baseline.size() > 0) {
-                err.println("llm-lint:   基线里的旧问题都不报了");
+                err.println(Messages.t("llm-lint:   基线里的旧问题都不报了",
+                    "llm-lint:   none of the baseline entries are reported anymore"));
             }
             if (staleCount > 0) {
-                err.printf("llm-lint:   已经修好 %d 条（%s）—— 确认无误就删掉这些行，基线才算真的收紧%n",
+                err.printf(Messages.t("llm-lint:   已经修好 %d 条（%s）—— 确认无误就删掉这些行，基线才算真的收紧%n",
+                                "llm-lint:   %d entries are fixed (%s) - drop those lines once you are sure, "
+                                        + "that is how the baseline actually tightens%n"),
                         staleCount, formatCounts(stale));
             } else {
-                err.println("llm-lint:   没有修好的旧问题");
+                err.println(Messages.t("llm-lint:   没有修好的旧问题", "llm-lint:   no baseline entry has been fixed yet"));
             }
         }
 
@@ -437,41 +491,127 @@ public final class Main implements Callable<Integer> {
     private Integer writeInit(PrintWriter out, PrintWriter err) {
         Path target = Path.of(".llm-lint.yml");
         if (Files.exists(target)) {
-            err.println("已经有 " + target + " 了，不覆盖；要重写就先删掉它。");
+            err.println(Messages.f("%s 已经在了，不覆盖；要重写就先删掉它。", "%s already exists; not overwriting. Delete it first.",
+                    target));
             return 2;
         }
         try {
             Files.writeString(target, ConfigLoader.template(Rules.all()), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            err.println("写不了 " + target + "：" + e.getMessage());
+            err.println(Messages.f("写不了 %s：%s", "Cannot write %s: %s", target, e.getMessage()));
             return 2;
         }
-        out.println("写好：" + target + "（里面全是注释，去掉某行的 # 就是启用那条规则）");
-        out.println("改完跑一次 `llm-lint --print-config`，看实际生效的是什么。");
+        out.println(Messages.f("写好：%s（里面全是注释，去掉某行的 # 就是启用那条规则）",
+                "Wrote %s (every rule starts commented out; drop the # to enable it)", target));
+        out.println(Messages.t("改完跑一次 `llm-lint --print-config`，看实际生效的是什么。",
+                "Then run `llm-lint --print-config` to see what actually takes effect."));
         return 0;
     }
 
     private Integer writeInitCi(PrintWriter out, PrintWriter err, Path dir) {
         Path target = dir.resolve(".github/workflows/llm-lint.yml");
         if (Files.exists(target)) {
-            err.println("已经有 " + target + " 了，不覆盖；要重写就先删掉它。");
+            err.println(Messages.f("%s 已经在了，不覆盖；要重写就先删掉它。", "%s already exists; not overwriting. Delete it first.",
+                    target));
             return 2;
         }
         try {
             Files.createDirectories(target.toAbsolutePath().getParent());
             Files.writeString(target, ciTemplate(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            err.println("写不了 " + target + "：" + e.getMessage());
+            err.println(Messages.f("写不了 %s：%s", "Cannot write %s: %s", target, e.getMessage()));
             return 2;
         }
-        out.println("写好：" + target + "（push 到 main、开 PR 都会跑）");
-        out.println("它用 pgy763/llm-lint@v1，第一次跑会从 release 下 jar；想钉版本就在 with: 下写 version: <版本号>。");
-        out.println("想让规则开关跟着仓库走：llm-lint --init");
+        out.println(Messages.f("写好：%s（push 到 main、开 PR 都会跑）",
+                "Wrote %s (it runs on pushes to main and on pull requests)", target));
+        out.println(Messages.t(
+                "它用 pgy763/llm-lint@v1，第一次跑会从 release 下 jar；想钉版本就在 with: 下写 version: <版本号>。",
+                "It uses pgy763/llm-lint@v1 and downloads the jar from the latest release; "
+                        + "pin a version with version: <x.y.z> under with:."));
+        out.println(Messages.t("想让规则开关跟着仓库走：llm-lint --init",
+                "To pin rule switches in the repo: llm-lint --init"));
         return 0;
     }
 
+    private Integer writeInitHook(PrintWriter out, PrintWriter err, Path dir) {
+        Path git = dir.resolve(".git");
+        if (!Files.isDirectory(git)) {
+            err.println(Messages.f("%s 下面没有 .git；先在那里 git init，或者用 --init-hook <dir> 指到仓库根",
+                    "No .git under %s; run git init there first, or point --init-hook <dir> at the repo root",
+                    dir.toAbsolutePath()));
+            return 2;
+        }
+        Path target = git.resolve("hooks/pre-commit");
+        if (Files.exists(target)) {
+            err.println(Messages.f("%s 已经在了，不覆盖；要么把它接进现有 hook，要么先删掉再重写。",
+                    "%s already exists; chain it into the current hook or delete it first.", target));
+            return 2;
+        }
+        try {
+            Files.createDirectories(target.toAbsolutePath().getParent());
+            Files.writeString(target, hookTemplate(), StandardCharsets.UTF_8);
+            try {
+                Files.setPosixFilePermissions(target, PosixFilePermissions.fromString("rwxr-xr-x"));
+            } catch (UnsupportedOperationException | IOException ignored) {
+                // Windows 上 chmod 不可用，git 照样按 shebang 执行。
+            }
+        } catch (IOException e) {
+            err.println(Messages.f("写不了 %s：%s", "Cannot write %s: %s", target, e.getMessage()));
+            return 2;
+        }
+        out.println(Messages.f("写好：%s（提交前只扫 staged 的 .java 文件，有 error 就拦下）",
+                "Wrote %s (it scans staged .java files and blocks the commit on errors)", target));
+        out.println(Messages.t(
+                "绕过一次用 git commit --no-verify；机器上找不到 llm-lint 时 hook 会自己跳过并提示，不会把人卡死。",
+                "Skip once with git commit --no-verify; if llm-lint is not installed the hook skips with a notice "
+                        + "instead of blocking the commit."));
+        return 0;
+    }
+
+    private static String hookTemplate() {
+        return Messages.lang() == Lang.ZH ? """
+                #!/bin/sh
+                # llm-lint pre-commit hook —— 由 `llm-lint --init-hook` 生成。
+                # 只扫这次 git add 的 .java 文件；有 error 级别的发现就拦下提交。
+                # 临时绕过一次：git commit --no-verify
+                # 也可以把 LLM_LINT 设成带参数的命令，比如 LLM_LINT="java -jar tools/llm-lint.jar"。
+
+                files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.java')
+                [ -z "$files" ] && exit 0
+
+                LLM_LINT="${LLM_LINT:-llm-lint}"
+                if ! command -v "${LLM_LINT%% *}" >/dev/null 2>&1; then
+                  echo "llm-lint: 找不到 ${LLM_LINT%% *}，跳过检查（装一份 llm-lint，或设置 LLM_LINT）" >&2
+                  exit 0
+                fi
+
+                # shellcheck disable=SC2086
+                $LLM_LINT --fail-on error $files
+
+                """ : """
+                #!/bin/sh
+                # llm-lint pre-commit hook - generated by `llm-lint --init-hook`.
+                # Scans only the .java files staged for this commit; error-level findings block it.
+                # Skip once with: git commit --no-verify
+                # LLM_LINT may include arguments, e.g. LLM_LINT="java -jar tools/llm-lint.jar".
+
+                files=$(git diff --cached --name-only --diff-filter=ACMR -- '*.java')
+                [ -z "$files" ] && exit 0
+
+                LLM_LINT="${LLM_LINT:-llm-lint}"
+                if ! command -v "${LLM_LINT%% *}" >/dev/null 2>&1; then
+                  echo "llm-lint: '${LLM_LINT%% *}' not found, skipping (install llm-lint or set LLM_LINT)" >&2
+                  exit 0
+                fi
+
+                # shellcheck disable=SC2086
+                $LLM_LINT --fail-on error $files
+
+                """;
+    }
+
     private static String ciTemplate() {
-        return """
+        return Messages.lang() == Lang.ZH ? """
                 # llm-lint：扫 Java 源码里 LLM 集成常见的坑。
                 # 注解会挂在 PR 的「Files changed」对应行上；有 error 这条 job 就红。
                 name: llm-lint
@@ -503,6 +643,41 @@ public final class Main implements Callable<Integer> {
                           # config: .llm-lint.yml
                           # 存量项目先记下旧问题，只拦新问题：
                           # baseline: .llm-lint.baseline
+
+                """ : """
+                # llm-lint: finds the usual LLM-integration traps in Java sources.
+                # Annotations land on the matching lines in "Files changed"; any error fails this job.
+                name: llm-lint
+
+                on:
+                  push:
+                    branches: [main]
+                  pull_request:
+
+                permissions:
+                  contents: read
+                  # Needed to keep one updatable summary comment on the PR; drop this line and
+                  # set pr-comment: 'false' if you do not want it.
+                  pull-requests: write
+
+                jobs:
+                  lint:
+                    runs-on: ubuntu-latest
+                    steps:
+                      - uses: actions/checkout@v4
+                        with:
+                          # A PR is compared against its base branch, so fetch the full history.
+                          fetch-depth: 0
+                      - uses: pgy763/llm-lint@v1
+                        with:
+                          path: src/main/java
+                          # Only scan what the PR changed (much faster); empty on main means a full scan:
+                          # since: origin/${{ github.base_ref }}
+                          # A .llm-lint.yml in the repo is picked up automatically; you can also point at it:
+                          # config: .llm-lint.yml
+                          # For existing codebases, record old findings first and only fail on new ones:
+                          # baseline: .llm-lint.baseline
+
                 """;
     }
 
@@ -514,21 +689,25 @@ public final class Main implements Callable<Integer> {
                 .findFirst()
                 .orElse(null);
         if (rule == null) {
-            err.println("没有这条规则：" + id + "。看全部：llm-lint --list-rules");
+            err.println(Messages.f("没有这条规则：%s。看全部：llm-lint --list-rules",
+                    "No such rule: %s. See all: llm-lint --list-rules", id));
             return 2;
         }
         out.println(rule.id() + "  " + rule.title());
         out.println();
-        out.println("级别      " + levelText(config, rule));
-        out.println("框架      " + framework(rule));
-        out.println("文档      " + rule.docUrl());
+        boolean zh = Messages.lang() == Lang.ZH;
+        out.println(Messages.t("级别      ", "Level     ") + levelText(config, rule));
+        out.println(Messages.t("框架      ", "Framework ") + framework(rule));
+        out.println(Messages.t("文档      ", "Docs      ") + rule.docUrl());
         if (!rule.why().isEmpty()) {
             out.println();
             out.println(rule.why());
         }
         out.println();
-        out.println("不想在某个文件里看它：在该行或上一行写 `// llm-lint:ignore " + rule.id() + "`。");
-        out.println("整条关掉：`--disable " + rule.id() + "`，或在 .llm-lint.yml 里写 `" + rule.id() + ": off`。");
+        out.println(Messages.f("不想在某个文件里看它：在该行或上一行写 `// llm-lint:ignore %s`。",
+                "To mute it in one place, put `// llm-lint:ignore %s` on that line or the line above.", rule.id()));
+        out.println(Messages.f("整条关掉：`--disable %s`，或在 .llm-lint.yml 里写 `%s: off`。",
+                "To turn the rule off entirely: `--disable %s`, or `%s: off` in .llm-lint.yml.", rule.id(), rule.id()));
         return 0;
     }
 
@@ -537,14 +716,15 @@ public final class Main implements Callable<Integer> {
     private static String formatCounts(Map<String, Integer> counts) {
         return counts.entrySet().stream()
                 .map(e -> e.getKey() + " " + e.getValue())
-                .collect(Collectors.joining("、"));
+                .collect(Collectors.joining(Messages.t("、", ", ")));
     }
 
     private static String levelText(Config config, Rule rule) {
         return config.levelOf(rule.id())
                 .map(level -> level == RuleLevel.OFF
-                        ? "off（.llm-lint.yml 里关掉了）"
-                        : level.label() + "（.llm-lint.yml 从默认的 " + rule.severity().label() + " 改的）")
+                        ? Messages.t("off（.llm-lint.yml 里关掉了）", "off (turned off in .llm-lint.yml)")
+                        : level.label() + Messages.f("（.llm-lint.yml 从默认的 %s 改的）",
+                                " (changed from the default %s in .llm-lint.yml)", rule.severity().label()))
                 .orElse(rule.severity().label());
     }
 
@@ -557,7 +737,7 @@ public final class Main implements Callable<Integer> {
         return switch (rule.framework()) {
             case "spring-ai" -> "Spring AI";
             case "langchain4j" -> "LangChain4j";
-            default -> "通用";
+            default -> Messages.t("通用", "Both");
         };
     }
 

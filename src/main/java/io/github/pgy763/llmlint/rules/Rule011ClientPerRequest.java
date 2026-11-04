@@ -6,6 +6,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -31,7 +32,9 @@ public final class Rule011ClientPerRequest extends AbstractRule {
 
     @Override
     public String title() {
-        return "每次请求都新建 ChatClient/ChatModel";
+        return Messages.t(
+                "每次请求都新建 ChatClient/ChatModel",
+                "New ChatClient/ChatModel per request");
     }
 
     @Override
@@ -51,9 +54,15 @@ public final class Rule011ClientPerRequest extends AbstractRule {
 
     @Override
     public String why() {
-        return "Spring AI 的 ChatClient/ChatModel 与 LangChain4j 的 ChatLanguageModel 都是"
-                + "「建一次、随便用」的东西：内部带连接池和重试器。在业务方法里建，等于每个请求"
-                + "重开连接池、重做 TLS 握手，并发一高线程和端口先耗尽。";
+        return Messages.t(
+                "Spring AI 的 ChatClient/ChatModel 与 LangChain4j 的 ChatLanguageModel 都是"
+                        + "「建一次、随便用」的东西：内部带连接池和重试器。在业务方法里建，等于每个请求"
+                        + "重开连接池、重做 TLS 握手，并发一高线程和端口先耗尽。",
+                "Spring AI's ChatClient/ChatModel and LangChain4j's ChatLanguageModel are"
+                        + " build-once-use-many objects: they carry a connection pool and a retryer"
+                        + " inside. Building them in a business method reopens the pool and redoes"
+                        + " the TLS handshake on every request; under load threads and ports are"
+                        + " exhausted first.");
     }
 
     @Override
@@ -71,11 +80,16 @@ public final class Rule011ClientPerRequest extends AbstractRule {
                 if (root == null || !Ast.isClientType(root) || root.endsWith("AiServices")) {
                     continue;
                 }
-                out.add(at(file, call,
-                        "`" + m.getNameAsString() + "` 里现建 `" + root + "`。"
+                out.add(at(file, call, Messages.f(
+                        "`%s` 里现建 `%s`。"
                                 + "每来一个请求就新建一次客户端：连接池、TLS 握手、序列化器全部重来，"
                                 + "高峰期线程和端口会先于模型耗尽。"
-                                + "在 `@Bean` 方法里建一次，业务类注入复用即可。"));
+                                + "在 `@Bean` 方法里建一次，业务类注入复用即可。",
+                        "`%s` builds `%s` on the spot. A new client per request means the"
+                                + " connection pool, TLS handshake and serializers are all redone;"
+                                + " at peak, threads and ports run out before the model does. Build"
+                                + " it once in a `@Bean` method and inject it into business classes.",
+                        m.getNameAsString(), root)));
                 break;
             }
         }

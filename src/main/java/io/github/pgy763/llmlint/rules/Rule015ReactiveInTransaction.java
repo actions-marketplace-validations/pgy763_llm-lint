@@ -5,6 +5,7 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.support.Ast;
 
 import java.nio.file.Path;
@@ -28,7 +29,7 @@ public final class Rule015ReactiveInTransaction extends AbstractRule {
 
     @Override
     public String title() {
-        return "事务方法返回 Flux/Mono";
+        return Messages.t("事务方法返回 Flux/Mono", "Transactional method returns Flux/Mono");
     }
 
     @Override
@@ -48,9 +49,14 @@ public final class Rule015ReactiveInTransaction extends AbstractRule {
 
     @Override
     public String why() {
-        return "阻塞式事务管理器在方法返回的那一刻提交。返回 Flux/Mono 的方法里，"
-                + "真正干活的是订阅之后——那时代码已经跑在事务外面了。"
-                + "看起来有 @Transactional，回滚却不会发生。";
+        return Messages.t(
+                "阻塞式事务管理器在方法返回的那一刻提交。返回 Flux/Mono 的方法里，"
+                        + "真正干活的是订阅之后——那时代码已经跑在事务外面了。"
+                        + "看起来有 @Transactional，回滚却不会发生。",
+                "A blocking transaction manager commits the moment the method returns. In a"
+                        + " method that returns Flux/Mono the real work happens on subscription — by"
+                        + " then the code runs outside the transaction. It looks like @Transactional,"
+                        + " but rollback never happens.");
     }
 
     @Override
@@ -66,12 +72,19 @@ public final class Rule015ReactiveInTransaction extends AbstractRule {
             if (!transactional) {
                 continue;
             }
-            out.add(at(file, m,
-                    "`" + m.getNameAsString() + "` 标了 `@Transactional` 但返回 `" + returnType + "`。"
+            out.add(at(file, m, Messages.f(
+                    "`%s` 标了 `@Transactional` 但返回 `%s`。"
                             + "阻塞式事务管理器在方法返回时就提交了，订阅之后发出的数据不在事务里——"
                             + "看着有注解，回滚不会发生。"
                             + "拆成「事务里只做同步的库操作 + 事务外组装流」，"
-                            + "或者确认你确实用的是响应式事务管理器。"));
+                            + "或者确认你确实用的是响应式事务管理器。",
+                    "`%s` is annotated `@Transactional` but returns `%s`. The blocking transaction"
+                            + " manager commits when the method returns, so data emitted after"
+                            + " subscription is outside the transaction — the annotation is there,"
+                            + " rollback is not. Split it so that the transaction only does"
+                            + " synchronous DB work and the stream is assembled outside, or"
+                            + " confirm you really use a reactive transaction manager.",
+                    m.getNameAsString(), returnType)));
         }
         return out;
     }

@@ -5,6 +5,7 @@ import com.github.javaparser.ast.expr.StringLiteralExpr;
 import io.github.pgy763.llmlint.AbstractRule;
 import io.github.pgy763.llmlint.Finding;
 import io.github.pgy763.llmlint.Severity;
+import io.github.pgy763.llmlint.lang.Messages;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -25,7 +26,7 @@ public final class Rule010HardcodedKey extends AbstractRule {
 
     @Override
     public String title() {
-        return "硬编码的 API key";
+        return Messages.t("硬编码的 API key", "Hardcoded API key");
     }
 
     @Override
@@ -40,7 +41,11 @@ public final class Rule010HardcodedKey extends AbstractRule {
 
     @Override
     public String why() {
-        return "密钥一旦提交进 git 就永远在历史里。删掉那一行不够——clone 和 fork 都还带着它，只能先吊销再换。";
+        return Messages.t(
+                "密钥一旦提交进 git 就永远在历史里。删掉那一行不够——clone 和 fork 都还带着它，只能先吊销再换。",
+                "Once a key is committed to git it stays in the history forever. Deleting the line"
+                        + " is not enough — clones and forks still carry it; revoke it first, then"
+                        + " rotate.");
     }
 
     @Override
@@ -52,10 +57,14 @@ public final class Rule010HardcodedKey extends AbstractRule {
                 continue;
             }
             if (KEY.matcher(value).matches()) {
-                out.add(at(file, literal,
+                out.add(at(file, literal, Messages.t(
                         "这里是一个看起来真实的密钥。提交进 git 之后它就永远是公开的——"
                                 + "删掉那一行、甚至 force push 都不够，历史和 fork 里还在。"
-                                + "先撤销这把 key，再改成 `${LLM_API_KEY}` 或读环境变量。"));
+                                + "先撤销这把 key，再改成 `${LLM_API_KEY}` 或读环境变量。",
+                        "This looks like a real key. Once committed to git it is public forever —"
+                                + " deleting the line, even force-pushing, is not enough: the history"
+                                + " and forks still have it. Revoke this key first, then switch to"
+                                + " `${LLM_API_KEY}` or read it from an environment variable.")));
             }
         }
         return out;

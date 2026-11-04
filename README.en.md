@@ -206,6 +206,18 @@ To get findings into the repository's **Security → Code scanning** panel:
     sarif_file: llm-lint.sarif
 ```
 
+For CI that only speaks JUnit (Jenkins, GitLab CI):
+
+```yaml
+- run: java -jar llm-lint.jar --format junit src/main/java > llm-lint.xml || true
+# GitLab: artifacts:reports:junit: [llm-lint.xml]
+# Jenkins: junit 'llm-lint.xml'
+```
+
+Errors become `<failure>` (red build), warnings go to `<system-out>` (build stays green) - the same
+split the default exit code uses. Want something to send a human? `--format html` writes one page
+with inline CSS; double-click it, no network needed.
+
 Without the action, just download the jar:
 
 ```yaml
@@ -247,15 +259,16 @@ Counter-examples, fixes and exact scope for each rule: **[docs/rules.md](docs/ru
 ## Usage
 
 ```
-llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
+llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|never]
          [--min-severity info|warning|error] [--disable LLM004,LLM009]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
-         [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--print-config]
+         [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--init-hook [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>] [--fix]
-         [--explain LLM001] [--list-rules] <path...>
+         [--lang <zh|en>] [--explain LLM001] [--list-rules] <path...>
 
-  --format        text (default, for humans) / json / github (Actions annotations) / sarif
+  --format        text (default) / json / github (Actions annotations) / sarif
+                  / junit (what Jenkins and GitLab read) / html (a standalone page)
   --fail-on       error (default) / warning / never (report only)
   --min-severity  findings below this level are neither reported nor counted
   --disable       rules not to run; turn one off when it's a false positive in your project
@@ -265,6 +278,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --no-config     don't read any config file
   --init          write a commented .llm-lint.yml in the current directory
   --init-ci       write a GitHub Actions workflow under .github/workflows/
+  --init-hook     write a pre-commit hook that scans staged .java files
   --print-config  print the effective config (with defaults), usable as a config file
   --baseline      read this baseline; known issues are not reported (see baseline: too)
   --save-baseline merge this run's findings into the baseline; never deletes entries
@@ -274,6 +288,7 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
   --jobs          how many files to scan at once: default CPU count (max 8), 1 = sequential
   --since         only scan files changed since this git ref, e.g. origin/main or HEAD~1
   --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches)
+  --lang          zh (default) / en; human-readable text only, JSON fields stay put
   --explain       level, framework, rationale and suppression for one rule
 ```
 
@@ -281,6 +296,22 @@ llm-lint [--format text|json|github|sarif] [--fail-on error|warning|never]
 `target/` and `build/`. Files are parsed in parallel (up to 8 threads by default) while the output
 order stays identical to serial runs; add `--jobs 1` on a busy machine or to reproduce a specific
 order.
+
+### English output and a machine-readable rule list
+
+CI is read by the whole team, and `--lang en` (or `LLM_LINT_LANG=en`) switches the human-facing
+text: help, reports, summaries, the PR comment and `--explain`. JSON / SARIF field names and values
+do not move, so downstream scripts keep working.
+
+For editor plugins, dashboards or doc generators, ask for the rule list as data:
+
+```bash
+llm-lint --list-rules --format json
+```
+
+One object per rule: `id`, `title`, `severity` (the rule's own default), `level` (what actually
+applies this run; the config file and `--disable` show up here, `off` when turned off),
+`framework`, `why`, `docUrl`, `fixable` (whether `--fix` can patch it).
 
 ### Scanning only what changed
 
@@ -315,6 +346,25 @@ SseEmitter emitter = new SseEmitter();
 - `// llm-lint:ignore` — suppress every finding on that line
 - `// llm-lint:ignore LLM004,LLM009` — suppress only those
 - `// llm-lint:ignore-file` — suppress the whole file
+
+### Run it before you commit
+
+No need to wait for CI: `--init-hook` writes a `.git/hooks/pre-commit` that scans only the `.java`
+files staged for this commit and blocks it on errors.
+
+```bash
+java -jar llm-lint.jar --init-hook        # into the current repository
+```
+
+The hook calls the `llm-lint` command; when it is missing, the hook prints a notice and lets the
+commit through instead of trapping you. To use a specific jar:
+
+```bash
+LLM_LINT="java -jar tools/llm-lint.jar" git commit -m "..."   # for this commit only
+```
+
+Skip once with `git commit --no-verify`. If a `pre-commit` hook already exists, it is not
+overwritten; chain into it instead.
 
 ### Let it write the patch
 
@@ -400,7 +450,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.9.1 && git push origin v0.9.1
+git tag v0.11.0 && git push origin v0.11.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

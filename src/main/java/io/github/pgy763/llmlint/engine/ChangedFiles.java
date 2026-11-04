@@ -2,6 +2,8 @@ package io.github.pgy763.llmlint.engine;
 
 import java.io.IOException;
 import java.io.InputStream;
+import io.github.pgy763.llmlint.lang.Messages;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,7 +38,8 @@ public final class ChangedFiles {
      */
     public static List<Path> collect(Path repoDir, String ref) throws GitException {
         if (ref == null || ref.isBlank()) {
-            throw new GitException("--since 后面要跟一个 git 引用，比如 origin/main、HEAD~1 或 v0.6.0");
+            throw new GitException(Messages.t("--since 后面要跟一个 git 引用，比如 origin/main、HEAD~1 或 v0.6.0",
+                    "--since needs a git ref, e.g. origin/main, HEAD~1 or v0.6.0"));
         }
         Path dir = repoDir == null ? Path.of("") : repoDir;
         Path root = repositoryRoot(dir);
@@ -78,8 +81,8 @@ public final class ChangedFiles {
         String output = run(dir, "rev-parse", "--show-toplevel");
         String line = output.strip();
         if (line.isEmpty()) {
-            throw new GitException("--since 得在 git 仓库里跑：当前目录 " + dir.toAbsolutePath()
-                    + " 往上找不到 .git");
+            throw new GitException(Messages.f("--since 得在 git 仓库里跑：当前目录 %s 往上找不到 .git",
+                    "--since has to run inside a git repo: no .git above %s", dir.toAbsolutePath()));
         }
         return Path.of(line);
     }
@@ -123,23 +126,24 @@ public final class ChangedFiles {
             }
             int code = process.waitFor();
             if (code != 0) {
-                throw new GitException("--since 读不出来：" + firstLine(output)
-                        + "（ref 写成 origin/main、HEAD~1 或某个 tag；当前目录得在 git 仓库里）");
+                throw new GitException(Messages.f("--since 读不出来：%s（ref 写成 origin/main、HEAD~1 或某个 tag；当前目录得在 git 仓库里）",
+                        "--since failed: %s (use a ref like origin/main, HEAD~1 or a tag; "
+                                + "and run inside a git repo)", firstLine(output)));
             }
             return output;
         } catch (IOException e) {
-            throw new GitException("--since 得用 git，但它跑不起来：" + e.getMessage()
-                    + "（机器上装 git 了吗？）");
+            throw new GitException(Messages.f("--since 得用 git，但它跑不起来：%s（机器上装 git 了吗？）",
+                    "--since needs git, but it will not start: %s (is git installed?)", e.getMessage()));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new GitException("--since 等 git 的时候被打断了");
+            throw new GitException(Messages.t("--since 等 git 的时候被打断了", "--since was interrupted while waiting for git"));
         }
     }
 
     private static String firstLine(String output) {
         String text = output.strip();
         if (text.isEmpty()) {
-            return "git 没说原因";
+            return Messages.t("git 没说原因", "git gave no reason");
         }
         int newline = text.indexOf('\n');
         String line = newline < 0 ? text : text.substring(0, newline);
