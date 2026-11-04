@@ -1,0 +1,55 @@
+name: 规则误报
+description: 某条规则报了不该报的代码，或者没报该报的
+title: "[rule] "
+labels: ["false positive"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        规则的质量靠这类反馈活着。**请一定贴代码**——「LLM001 误报了」没法处理，「这段算不算在事务里」可以。
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 哪一种
+      options:
+        - 误报（报了，但代码其实没问题）
+        - 漏报（有问题，但没报）
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: 规则编号
+      placeholder: LLM007
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: 代码
+      description: 能复现的最小片段，方法级别就够，不用整个类
+      render: java
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 为什么你觉得不对
+      description: |
+        误报的话：这段代码实际是怎么跑的，为什么不会出问题。
+        漏报的话：这段代码上线之后会怎么坏。
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: 实际输出
+      description: 把那条 finding 贴上来（`--format text` 就行），含行号
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      placeholder: llm-lint 0.13.0
+    validations:
+      required: true

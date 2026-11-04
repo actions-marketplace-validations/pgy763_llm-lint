@@ -1,0 +1,62 @@
+name: 提一条新规则
+description: 你想让 llm-lint 多查一类坑
+title: "[rule idea] "
+labels: ["rule idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提之前看一下 [ROADMAP](https://github.com/pgy763/llm-lint/blob/main/ROADMAP.md)：已经有几条写好判断思路的，可以直接认领。
+        也想清楚一件事——**这条规则要能只靠语法树判断**（不联网、不读 classpath、不做符号解析）。做不到的话，这条规则大概率会误报一片。
+  - type: input
+    id: name
+    attributes:
+      label: 这条规则管什么
+      placeholder: 工具方法里做阻塞调用
+    validations:
+      required: true
+  - type: textarea
+    id: failure
+    attributes:
+      label: 不拦会怎么坏
+      description: 具体到症状。比如「日志里报什么」「用户看到什么」「排查会被带偏到哪里」
+    validations:
+      required: true
+  - type: textarea
+    id: detect
+    attributes:
+      label: 你打算怎么认
+      description: |
+        比如「方法带 @Tool，方法体里出现 `.block()` 或接收者类型名以 Repository 结尾」。
+        想不出来也没关系，写清楚「什么样的代码该报」就行。
+    validations:
+      required: true
+  - type: textarea
+    id: bad
+    attributes:
+      label: 该报的例子
+      render: java
+    validations:
+      required: true
+  - type: textarea
+    id: good
+    attributes:
+      label: 不该报的例子（同样长得像）
+      description: 这条最重要——用来确认规则不会误伤
+      render: java
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 你觉得该是什么级别
+      options:
+        - error（会直接故障）
+        - warning（有风险，视场景而定）
+        - info（提示）
+    validations:
+      required: true
+  - type: checkboxes
+    id: offer
+    attributes:
+      label: 要不要自己写
+      options:
+        - label: 我可以提 PR（我会按 CONTRIBUTING 的清单来）

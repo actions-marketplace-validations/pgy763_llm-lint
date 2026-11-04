@@ -2,12 +2,13 @@
 
 [![ci](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml)
 [![Marketplace](https://img.shields.io/badge/Marketplace-llm--lint-purple)](https://github.com/marketplace/actions/llm-lint)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 English | [中文](README.md)
 
 **Scan Spring AI / LangChain4j code and stop the expensive mistakes before you commit.**
 
-Fifteen rules, each one a failure you only find out about in production: a model call inside a
+Eighteen rules, each one a failure you only find out about in production: a model call inside a
 transaction draining the connection pool, a single shared chat memory leaking one user's context
 into another's, `new SseEmitter()` dropping the stream after thirty seconds, an API key that is
 already in your git history…
@@ -452,7 +453,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.12.0 && git push origin v0.12.0
+git tag v0.13.0 && git push origin v0.13.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a
@@ -469,6 +470,17 @@ The jar asset is not optional: `action.yml` downloads the tool from
 To get onto the [Marketplace](https://github.com/marketplace): on the release page tick
 *Publish this Action to the GitHub Marketplace* and pick a category. That step is manual; only then
 does the version show up in Actions search.
+
+## Contributing
+
+The scope is deliberately narrow — syntax tree only, report only what is unambiguous — which makes **adding one rule an afternoon-sized job**.
+
+- Adding a rule: follow the checklist in [CONTRIBUTING](CONTRIBUTING.md#加一条规则) (one class, one failing sample, one clean sample, one doc section); `mvn verify` tells you what you forgot.
+- Looking for something to do: [ROADMAP](ROADMAP.md) has four rules with the detection logic already written down (LLM019–LLM022) plus a few engineering tasks, each labelled with difficulty. `good first issue` means it really is a first-PR-sized job.
+- Found a false positive: open an issue with the **rule** template and paste the smallest snippet that reproduces it. A snippet beats a description ten times over.
+- Just want to say it helped (or didn't): [Discussions](https://github.com/pgy763/llm-lint/discussions) or a star.
+
+This is maintained by one person in the evenings, so opening an issue before a large PR gets it reviewed much faster. A rejected PR usually means the detection trade-off is wrong, not that the code is bad: this kind of tool only survives by **preferring a miss over a false alarm**.
 
 ## See also
 

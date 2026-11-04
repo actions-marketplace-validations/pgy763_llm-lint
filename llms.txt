@@ -16,5 +16,7 @@
 - [Baseline](docs/baseline.md): accept existing findings so CI only blocks new ones
 - [English README](README.en.md)
 - [Chinese README](README.md)
+- [Contributing](CONTRIBUTING.md): run it locally, add a rule, what gets reviewed
+- [Roadmap](ROADMAP.md): proposed rules LLM019–LLM022 with detection sketches, and engineering tasks
 - [GitHub Action](action.yml)
 - [Promotion checklist](docs/promote.md)

@@ -4,6 +4,7 @@
 
 [![ci](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml)
 [![Marketplace](https://img.shields.io/badge/Marketplace-llm--lint-purple)](https://github.com/marketplace/actions/llm-lint)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 **扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那些最贵的坑。**
 
@@ -429,7 +430,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.12.0 && git push origin v0.12.0
+git tag v0.13.0 && git push origin v0.13.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
@@ -445,6 +446,17 @@ release 里没有它，别人装到的就是上一版。
 
 想上 [Marketplace](https://github.com/marketplace)：在 release 页面勾 *Publish this Action to
 the GitHub Marketplace*、选个分类。这一步只能手工点，勾完这个版本才会出现在 Actions 的搜索里。
+
+## 参与进来
+
+这个项目的边界很窄：只读语法树、只报认得出的，所以**加一条规则是一件能在一个下午做完的事**。
+
+- 想加规则：照着 [CONTRIBUTING](CONTRIBUTING.md#加一条规则) 的清单做——一个类、一个反例、一个正例、一节文档，`mvn verify` 会把漏掉的地方指出来
+- 不知道从哪下手：[ROADMAP](ROADMAP.md) 里有四条写好判断思路的规则（LLM019–LLM022）和几个工程活，标了难度，标着 `good first issue` 的是真的第一次提 PR 就能做完
+- 发现误报：用「规则误报」模板开 issue，**贴能复现的代码**，比描述有用十倍
+- 只是想说声好用 / 不好用：开 [Discussions](https://github.com/pgy763/llm-lint/discussions) 或者点个 star 都行
+
+维护者也是一个人在晚上写，所以：提 PR 之前先在 issue 里说一句，审起来会快很多；被拒的 PR 一般不是写得不好，而是判断口径不对——这类工具唯一活得下去的方式是**宁可漏报，不可乱报**。
 
 ## 相关
 
