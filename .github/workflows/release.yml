@@ -103,13 +103,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # 失败时把 gh 的原话折成一条 ::error:: 注解：日志要权限才能下，注解不用
+          fail() {
+            code="$1"; shift
+            msg="$(printf '%s' "$*" | tr '\n' ' ' | tail -c 900)"
+            echo "::error::${msg}"
+            exit "$code"
+          }
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             # 重跑（比如 tag 被挪过）时正文也要跟着更新，不能只换 jar
-            gh release edit "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
-            gh release upload "$GITHUB_REF_NAME" target/llm-lint.jar --clobber
+            out="$(gh release edit "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md 2>&1)" || fail $? "gh release edit 失败：$out"
+            out="$(gh release upload "$GITHUB_REF_NAME" target/llm-lint.jar --clobber 2>&1)" || fail $? "gh release upload 失败：$out"
           else
-            gh release create "$GITHUB_REF_NAME" target/llm-lint.jar \
-              --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
+            out="$(gh release create "$GITHUB_REF_NAME" target/llm-lint.jar --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md 2>&1)" || fail $? "gh release create 失败：$out"
+            echo "$out"
           fi
 
       - name: v1 指针挪到这个版本
@@ -124,8 +131,18 @@ jobs:
               exit 0
               ;;
           esac
+          # GitHub 的 SSH/HTTPS 入口偶尔会拒一次，推 tag 失败先退一步再试
           git tag -f v1 "$GITHUB_REF_NAME"
-          git push -f origin "refs/tags/v1"
+          for i in 1 2 3; do
+            if out="$(git push -f origin "refs/tags/v1" 2>&1)"; then
+              echo "v1 -> $GITHUB_REF_NAME"
+              exit 0
+            fi
+            echo "第 $i 次推 v1 失败：$out"
+            sleep $((i * 5))
+          done
+          echo "::error::v1 指针没挪动（三次都失败）：$(printf '%s' "$out" | tr '\n' ' ' | tail -c 500)"
+          exit 1
 
       - name: 确认 action 默认取的那个地址真的能下到
         run: |

@@ -156,7 +156,7 @@ class ProjectConfigTest {
         Run run = run("--config", DEMO_CONFIG.toString(), "--list-rules");
 
         assertEquals(0, run.code, run.combined());
-        assertEquals(18, run.out.lines().count(), run.out);
+        assertEquals(19, run.out.lines().count(), run.out);
         assertTrue(run.out.lines().anyMatch(l -> l.startsWith("LLM004") && l.contains(" off ")), run.out);
         assertTrue(run.out.lines().anyMatch(l -> l.startsWith("LLM007") && l.contains(" error ")), run.out);
     }

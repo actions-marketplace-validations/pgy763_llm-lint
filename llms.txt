@@ -1,16 +1,23 @@
 # llm-lint
 
-> llm-lint is a static analyzer for Java code built on Spring AI or LangChain4j. It reports eighteen
+> llm-lint is a static analyzer for Java code built on Spring AI or LangChain4j. It reports nineteen
 > failure modes that only show up in production — model calls inside transactions, shared chat
 > memory, SSE streams that die after 30 seconds, hard-coded API keys — without running tests, calling
 > a model, or needing your classpath. Ships as a CLI and a GitHub Action, with SARIF, JSON,
 > baseline support for existing codebases, --since to scan only files changed in a pull request,
 > and --fix to print a patch for the two mechanically fixable rules (LLM006, LLM018).
 
-- [Eighteen rules](docs/rules.md): what each rule catches, with counter-examples and fixes
+- [Documentation site](https://pgy763.github.io/llm-lint/): getting started, CI recipes, rules by error message
+- [Getting started](https://pgy763.github.io/llm-lint/start.html): install, first run, exit codes, output formats
+- [CI recipes](https://pgy763.github.io/llm-lint/integrations.html): GitHub Action, GitLab, Jenkins, pre-commit, Maven
+- [Rules by error message](https://pgy763.github.io/llm-lint/errors.html): NoSuchBeanDefinitionException, HikariPool timeouts, truncated streams
+- [Nineteen rules](docs/rules.md): what each rule catches, with counter-examples and fixes
 - [Per-project configuration](docs/config.md): `.llm-lint.yml` schema, discovery, precedence
 - [Baseline](docs/baseline.md): accept existing findings so CI only blocks new ones
 - [English README](README.en.md)
 - [Chinese README](README.md)
+- [Contributing](CONTRIBUTING.md): run it locally, add a rule, what gets reviewed
+- [Contributing on the site](https://pgy763.github.io/llm-lint/contributing.html): the same thing, shorter, with the four rules we want next
+- [Roadmap](ROADMAP.md): proposed rules LLM019–LLM022 with detection sketches, and engineering tasks
 - [GitHub Action](action.yml)
 - [Promotion checklist](docs/promote.md)

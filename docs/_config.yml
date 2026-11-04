@@ -1,0 +1,16 @@
+title: llm-lint
+description: 扫一遍 Spring AI / LangChain4j 的 Java 代码，在 commit 之前拦住那些人到线上才会发现的问题。
+theme: jekyll-theme-primer
+show_downloads: false
+lang: zh-CN
+plugins:
+  - jekyll-sitemap
+  - jekyll-relative-links
+exclude:
+  - promote.md
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: https://pgy763.github.io/llm-lint/assets/og.png
+      author: pgy763

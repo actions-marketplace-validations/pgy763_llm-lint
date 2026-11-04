@@ -2,12 +2,13 @@
 
 [![ci](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/pgy763/llm-lint/actions/workflows/ci.yml)
 [![Marketplace](https://img.shields.io/badge/Marketplace-llm--lint-purple)](https://github.com/marketplace/actions/llm-lint)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 English | [中文](README.md)
 
 **Scan Spring AI / LangChain4j code and stop the expensive mistakes before you commit.**
 
-Fifteen rules, each one a failure you only find out about in production: a model call inside a
+Nineteen rules, each one a failure you only find out about in production: a model call inside a
 transaction draining the connection pool, a single shared chat memory leaking one user's context
 into another's, `new SseEmitter()` dropping the stream after thirty seconds, an API key that is
 already in your git history…
@@ -17,7 +18,7 @@ One command, a few seconds.
 
 The full story behind each pitfall (verbatim errors, how to reproduce, how to fix) lives in a
 separate handbook: <https://pgy763.github.io/llm-dev-pitfalls/>. This tool is the "linter version"
-of that handbook — the eighteen counter-examples in `samples/bad/` map one-to-one to its entries.
+of that handbook — the nineteen counter-examples in `samples/bad/` map one-to-one to its entries.
 
 ---
 
@@ -47,7 +48,7 @@ llm-lint: 1 issue (1 error / 0 warning), 12 files scanned
 - To change the threshold: `--fail-on warning` (warnings fail too) or `--fail-on never` (report only).
 - To learn why a rule exists: `java -jar llm-lint.jar --explain LLM001`.
 
-You don't have to try it on your own project first: `samples/bad/` holds the eighteen counter-examples
+You don't have to try it on your own project first: `samples/bad/` holds the nineteen counter-examples
 and `java -jar llm-lint.jar samples/bad` reports all of them; `samples/good/` is the corrected code
 and reports nothing.
 
@@ -206,6 +207,8 @@ To get findings into the repository's **Security → Code scanning** panel:
     sarif_file: llm-lint.sarif
 ```
 
+Every result carries `partialFingerprints`, so the same finding is not recounted on later commits — even if its line number moved.
+
 For CI that only speaks JUnit (Jenkins, GitLab CI):
 
 ```yaml
@@ -230,7 +233,7 @@ Without the action, just download the jar:
     java -jar llm-lint.jar --format github src/main/java
 ```
 
-## The eighteen rules
+## The nineteen rules
 
 | ID | Level | Framework | What it catches | What you see when it bites |
 | --- | --- | --- | --- | --- |
@@ -252,6 +255,7 @@ Without the action, just download the jar:
 | LLM016 | error | any | `@Tool` method returning `Mono` / `Flux` | the model gets `Mono@1a2b`, or the whole call 500s |
 | LLM017 | error | any | vector store reads/writes inside a transaction | the connection pool dries up, same as LLM001 |
 | LLM018 | warning | any | `Flux` returned without `produces` | the client still waits, then gets everything at once |
+| LLM019 | warning | any | blocking call inside a `@Tool` method (db, sync HTTP, `sleep`) | the model waits on the tool, the whole response stalls |
 
 Counter-examples, fixes and exact scope for each rule: **[docs/rules.md](docs/rules.md)**.
 `java -jar llm-lint.jar --list-rules` prints this table any time.
@@ -450,7 +454,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.11.0 && git push origin v0.11.0
+git tag v0.14.0 && git push origin v0.14.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a
@@ -468,8 +472,20 @@ To get onto the [Marketplace](https://github.com/marketplace): on the release pa
 *Publish this Action to the GitHub Marketplace* and pick a category. That step is manual; only then
 does the version show up in Actions search.
 
+## Contributing
+
+The scope is deliberately narrow — syntax tree only, report only what is unambiguous — which makes **adding one rule an afternoon-sized job**.
+
+- Adding a rule: follow the checklist in [CONTRIBUTING](CONTRIBUTING.md#加一条规则) (one class, one failing sample, one clean sample, one doc section); `mvn verify` tells you what you forgot.
+- Looking for something to do: [ROADMAP](ROADMAP.md) has four rules with the detection logic already written down (LLM019–LLM022) plus a few engineering tasks, each labelled with difficulty. `good first issue` means it really is a first-PR-sized job.
+- Found a false positive: open an issue with the **rule** template and paste the smallest snippet that reproduces it. A snippet beats a description ten times over.
+- Just want to say it helped (or didn't): [open an issue](https://github.com/pgy763/llm-lint/issues/new) or leave a star.
+
+This is maintained by one person in the evenings, so opening an issue before a large PR gets it reviewed much faster. A rejected PR usually means the detection trade-off is wrong, not that the code is bad: this kind of tool only survives by **preferring a miss over a false alarm**.
+
 ## See also
 
+- [Documentation site](https://pgy763.github.io/llm-lint/) — [getting started](https://pgy763.github.io/llm-lint/start.html), [CI recipes](https://pgy763.github.io/llm-lint/integrations.html), [rules by error message](https://pgy763.github.io/llm-lint/errors.html), [FAQ](https://pgy763.github.io/llm-lint/faq.html), [rule reference](https://pgy763.github.io/llm-lint/rules.html)
 - [llm-dev-pitfalls](https://pgy763.github.io/llm-dev-pitfalls/) — the handbook behind this linter, 51 entries with verbatim errors
 - [hello-ai-backend](https://pgy763.github.io/hello-ai-backend/) — a book that starts with your first model call
 

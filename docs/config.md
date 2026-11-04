@@ -1,3 +1,8 @@
+---
+title: 把规则固定在仓库里
+description: .llm-lint.yml 的六个键、怎么被找到、优先级，以及写错时的报错长什么样。
+---
+
 # 把规则固定在仓库里
 
 `.llm-lint.yml` 是给一个**项目**准备的配置文件：哪条规则不跑、哪条要更严、哪些目录不扫、
@@ -201,7 +206,7 @@ $ java -jar llm-lint.jar --config .llm-lint.yml src/main/java
 java -jar llm-lint.jar --init
 ```
 
-在当前目录写 `.llm-lint.yml`：十八条规则各一行注释（带默认级别），外加 exclude、fail-on、
+在当前目录写 `.llm-lint.yml`：十九条规则各一行注释（带默认级别），外加 exclude、fail-on、
 min-severity 的注释示例。**全部是注释，等于没生效**，你按需去掉 `#`。文件已存在时**不覆盖**，
 退出码 `2`——`--init` 是给新项目用的，不是用来重置的。
 

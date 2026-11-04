@@ -12,6 +12,11 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -102,5 +107,53 @@ class DocsTest {
             case "note" -> "info";
             default -> level;
         };
+    }
+
+    @Test
+    void 贡献者文档都在且互相链得上() throws IOException {
+        List<String> files = List.of("CONTRIBUTING.md", "ROADMAP.md", "SECURITY.md", "CODE_OF_CONDUCT.md",
+                ".github/PULL_REQUEST_TEMPLATE.md",
+                ".github/ISSUE_TEMPLATE/bug.yml", ".github/ISSUE_TEMPLATE/false-positive.yml",
+                ".github/ISSUE_TEMPLATE/rule-idea.yml", ".github/ISSUE_TEMPLATE/config.yml");
+        for (String name : files) {
+            assertTrue(Files.isRegularFile(Path.of(name)), "少了 " + name + "，GitHub 上会给贡献者看到 404");
+        }
+
+        for (String readme : List.of("README.md", "README.en.md")) {
+            String text = read(Path.of(readme));
+            assertTrue(text.contains("CONTRIBUTING.md"), readme + " 没有链到 CONTRIBUTING.md");
+            assertTrue(text.contains("ROADMAP.md"), readme + " 没有链到 ROADMAP.md");
+        }
+    }
+
+    @Test
+    void 贡献文档里的相对链接不会404() throws IOException {
+        Pattern link = Pattern.compile("\\]\\(([^)\\s]+\\.(?:md|yml))");
+        for (String name : List.of("CONTRIBUTING.md", "ROADMAP.md", "SECURITY.md", "CODE_OF_CONDUCT.md")) {
+            Matcher m = link.matcher(read(Path.of(name)));
+            while (m.find()) {
+                String target = m.group(1).split("#")[0];
+                if (target.startsWith("http") || target.isEmpty()) {
+                    continue;
+                }
+                assertTrue(Files.exists(Path.of(target)), name + " 链到了不存在的 " + target);
+            }
+        }
+    }
+
+    @Test
+    void 路线图里的规则号还没被占用() throws IOException {
+        Pattern wanted = Pattern.compile("(?m)^### (LLM\\d{3})\\b");
+        Set<String> planned = new TreeSet<>();
+        Matcher m = wanted.matcher(read(Path.of("ROADMAP.md")));
+        while (m.find()) {
+            planned.add("LLM" + m.group(1));
+        }
+
+        Set<String> shipped = Rules.all().stream().map(Rule::id).collect(Collectors.toCollection(TreeSet::new));
+        Set<String> overlap = new TreeSet<>(planned);
+        overlap.retainAll(shipped);
+        assertTrue(overlap.isEmpty(),
+                "ROADMAP 里还写着 " + overlap + "，但它已经实现了——实现完记得从路线图里划掉");
     }
 }
