@@ -9,6 +9,7 @@ description: 每个版本改了什么，哪些变化可能影响已经接入的�
 
 | 版本 | 主要变化 |
 | --- | --- |
+| 0.13.1 | 文档站加「参与进来」一页，把提规则、报误报的入口放到站上 |
 | 0.13.0 | 贡献者入口：CONTRIBUTING、ROADMAP（四条备选规则）、issue / PR 模板、SECURITY |
 | 0.12.0 | SARIF 带 `partialFingerprints`，Code Scanning 里同一条问题不会每次都算新告警 |
 | 0.11.0 | `--format junit`（Jenkins/GitLab）、`--format html`、`--init-hook` 写 pre-commit |

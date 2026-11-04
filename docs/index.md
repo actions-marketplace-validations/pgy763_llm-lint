@@ -93,6 +93,12 @@ llm-lint --baseline .llm-lint.baseline                        # 之后只看新�
 - [基线](baseline.md) —— 存量项目怎么只拦新问题
 - [版本历史](changelog.md) —— 每个版本改了什么、哪些变化可能影响你
 
+**参与**
+
+- [参与进来](contributing.md) —— 十分钟能做的事、加一条规则的六步、现在最想要的四条
+- [路线图](https://github.com/pgy763/llm-lint/blob/main/ROADMAP.md) —— 待做的规则与工程活，标了难度
+- [安全问题](https://github.com/pgy763/llm-lint/blob/main/SECURITY.md) —— 走私密渠道，别开公开 issue
+
 **维护者**
 
 - [版本历史](changelog.md) —— 每个版本改了什么

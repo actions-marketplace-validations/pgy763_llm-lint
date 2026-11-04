@@ -17,6 +17,7 @@
 - [English README](README.en.md)
 - [Chinese README](README.md)
 - [Contributing](CONTRIBUTING.md): run it locally, add a rule, what gets reviewed
+- [Contributing on the site](https://pgy763.github.io/llm-lint/contributing.html): the same thing, shorter, with the four rules we want next
 - [Roadmap](ROADMAP.md): proposed rules LLM019–LLM022 with detection sketches, and engineering tasks
 - [GitHub Action](action.yml)
 - [Promotion checklist](docs/promote.md)
