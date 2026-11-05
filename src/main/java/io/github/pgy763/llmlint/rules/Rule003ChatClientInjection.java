@@ -45,6 +45,12 @@ public final class Rule003ChatClientInjection extends AbstractRule {
     }
 
     @Override
+    public String framework() {
+        // ChatClient 是 Spring AI 的接口，LangChain4j 那边对应的是 ChatLanguageModel。
+        return "spring-ai";
+    }
+
+    @Override
     public String why() {
         return Messages.t(
                 "Spring AI 的自动配置只注册 ChatClient.Builder 和 ChatModel，没有 ChatClient 这种 Bean。注入它启动就失败，报的还只是「找不到 Bean」。",

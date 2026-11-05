@@ -151,7 +151,8 @@ public final class Main implements Callable<Integer> {
             description = "Language for human-readable output: zh (default) or en; also LLM_LINT_LANG")
     private String lang;
 
-    @Option(names = "--list-rules", description = "List every rule and exit")
+    @Option(names = "--list-rules",
+            description = "List every rule and exit; --format markdown gives a table, json a machine-readable catalog")
     private boolean listRules;
 
     @Option(names = "--explain", paramLabel = "<ID>",
@@ -211,12 +212,25 @@ public final class Main implements Callable<Integer> {
             }
             Set<String> active = new HashSet<>();
             rules.forEach(r -> active.add(r.id()));
+            boolean table = "markdown".equalsIgnoreCase(format);
+            if (table) {
+                out.printf("| %s | %s | %s | %s |%n", Messages.t("编号", "ID"),
+                        Messages.t("级别", "Level"), Messages.t("框架", "Framework"),
+                        Messages.t("拦的是什么", "What it catches"));
+                out.println("| --- | --- | --- | --- |");
+            }
             for (Rule r : canonical) {
                 String level = active.contains(r.id())
                         ? config.levelOf(r.id()).map(RuleLevel::label).orElse(r.severity().label())
                         : "off";
-                out.printf("%-7s %-8s %-13s %s%n", r.id(), level, framework(r), r.title());
+                if (table) {
+                    out.printf("| [%s](#%s) | %s | %s | %s |%n",
+                            r.id(), r.id().toLowerCase(Locale.ROOT), level, framework(r), r.title());
+                } else {
+                    out.printf("%-7s %-8s %-13s %s%n", r.id(), level, framework(r), r.title());
+                }
             }
+            out.flush();
             return 0;
         }
 

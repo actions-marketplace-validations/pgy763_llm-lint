@@ -273,7 +273,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
          [--files-from <file>] [--fix]
-         [--lang <zh|en>] [--explain LLM001] [--list-rules] <path...>
+         [--lang <zh|en>] [--explain LLM001] [--list-rules [--format markdown|json]] <path...>
 
   --format        text (default) / json / github (Actions annotations) / sarif
                   / junit (what Jenkins and GitLab read) / html (a standalone page)
@@ -299,6 +299,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches)
   --lang          zh (default) / en; human-readable text only, JSON fields stay put
   --explain       level, framework, rationale and suppression for one rule
+  --list-rules    every rule; --format markdown for a table, --format json for a machine-readable catalog
 ```
 
 `<path>` can be a directory or a single `.java` file. Directories are searched recursively, skipping
@@ -325,8 +326,13 @@ do not move, so downstream scripts keep working.
 For editor plugins, dashboards or doc generators, ask for the rule list as data:
 
 ```bash
-llm-lint --list-rules --format json
+llm-lint --list-rules --format json      # one object per rule, with level / docUrl / fixable
+llm-lint --list-rules --format markdown  # a Markdown table you can paste into a README
 ```
+
+The markdown output has the same shape as the table at the top of this repo's
+[rule manual](docs/rules.md) (level and framework follow the config file). A test compares that
+table against the code, so a wrong level or framework turns CI red.
 
 One object per rule: `id`, `title`, `severity` (the rule's own default), `level` (what actually
 applies this run; the config file and `--disable` show up here, `off` when turned off),
@@ -483,7 +489,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.18.0 && git push origin v0.18.0
+git tag v0.19.0 && git push origin v0.19.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

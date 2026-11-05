@@ -82,4 +82,15 @@ class MarkdownCliTest {
         assertEquals(2, run.code());
         assertTrue(run.err().contains("评论写不进去"), run.err());
     }
+
+    @Test
+    void 规则清单能直接出markdown表格() {
+        Run run = run("--list-rules", "--format", "markdown");
+
+        assertEquals(0, run.code(), run.err());
+        assertTrue(run.out().startsWith("| 编号 | 级别 | 框架 | 拦的是什么 |"), run.out());
+        assertEquals(Rules.all().size(),
+                run.out().lines().filter(line -> line.startsWith("| [LLM")).count());
+        assertTrue(run.out().contains("| [LLM003](#llm003) | error | Spring AI |"), run.out());
+    }
 }

@@ -256,7 +256,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
          [--files-from <file>] [--fix]
-         [--lang <zh|en>] [--explain LLM001] [--list-rules] <path...>
+         [--lang <zh|en>] [--explain LLM001] [--list-rules [--format markdown|json]] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
                   / junit（Jenkins / GitLab 认的报告）/ html（一份能双击打开的页面）
@@ -282,6 +282,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --fix           不打印报告，改为输出 unified diff（目前 LLM006 / LLM018 有补丁）
   --lang          zh（默认）/ en；只换人看的文字，JSON 字段名不变
   --explain       一条规则的级别、框架、理由、抑制方式
+  --list-rules    列出全部规则；--format markdown 出表格、--format json 出机器可读的目录
 ```
 
 `<path>` 可以是目录，也可以是单个 `.java`。目录会递归找 `.java`，跳过 `target/` 和 `build/`。
@@ -306,8 +307,12 @@ CI 是给整个团队看的，或者你习惯英文：加 `--lang en`（也可�
 编辑器插件、内部看板、文档生成器要规则清单时，用机器可读的版本：
 
 ```bash
-llm-lint --list-rules --format json
+llm-lint --list-rules --format json      # 每条规则一个对象，带 level / docUrl / fixable
+llm-lint --list-rules --format markdown  # 直接是一张 Markdown 表，粘进 README 就能用
 ```
+
+`--format markdown` 出的就是本仓库 [规则手册](docs/rules.md) 顶部那张表的形状（级别和框架跟着
+配置文件走）。测试里锁了这张表：级别或框架和代码对不上，CI 就红。
 
 每条规则一个对象：`id`、`title`、`severity`（规则自带默认级别）、`level`（这次实际生效的级别，
 配置文件和 `--disable` 都会体现在这里，关掉就是 `off`）、`framework`、`why`、`docUrl`、
@@ -458,7 +463,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.18.0 && git push origin v0.18.0
+git tag v0.19.0 && git push origin v0.19.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -187,5 +190,31 @@ class DocsTest {
 
         String readme = read(Path.of("README.md"));
         assertTrue(readme.contains("ghcr.io/pgy763/llm-lint:latest"), "README 里的 docker run 得和 workflow 对得上");
+    }
+
+    @Test
+    void 规则手册的表和代码对得上() throws IOException {
+        // 表的第 2、3 列（级别、框架）是用户最先看的，写错了比少一行更要紧。
+        Map<String, String[]> rows = new HashMap<>();
+        for (String line : read(RULES_DOC).lines().toList()) {
+            if (!line.startsWith("| [LLM")) {
+                continue;
+            }
+            String[] cells = line.split(Pattern.quote("|"));
+            String id = cells[1].trim();
+            id = id.substring(1, id.indexOf(']'));
+            rows.put(id, new String[]{cells[2].trim(), cells[3].trim()});
+        }
+        for (Rule rule : Rules.all()) {
+            String[] cells = rows.get(rule.id());
+            assertNotNull(cells, "规则手册顶部的表里没有 " + rule.id());
+            String framework = switch (rule.framework()) {
+                case "spring-ai" -> "Spring AI";
+                case "langchain4j" -> "LangChain4j";
+                default -> "通用";
+            };
+            assertEquals(rule.severity().label(), cells[0], rule.id() + " 在表里的级别和代码不一样");
+            assertEquals(framework, cells[1], rule.id() + " 在表里的框架和代码不一样");
+        }
     }
 }

@@ -14,6 +14,8 @@ API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型
 表里的级别是**默认值**。某条规则在你项目里不合适——误报，或者你们的要求比它更严——写进仓库根的
 `.llm-lint.yml` 就行，不用改工具、也不用每次在 CI 里手写参数：见 [config.md](config.md)。
 
+这张表也能自己生成：`llm-lint --list-rules --format markdown`（级别、框架跟着配置走，测试会校验它和代码一致）。
+
 | 编号 | 级别 | 框架 | 拦的是什么 |
 | --- | --- | --- | --- |
 | [LLM001](#llm001) | error | 通用 | `@Transactional` 里调模型，占着数据库连接等几秒 |
