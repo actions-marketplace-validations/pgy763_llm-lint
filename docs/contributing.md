@@ -1,6 +1,6 @@
 ---
 title: 参与进来 —— 提一条规则、报一个误报
-description: llm-lint 怎么参与：报误报、报漏报、加一条规则、做工程活。加一条规则大约一个下午，三条待做的规则都写好了怎么认和样例。
+description: llm-lint 怎么参与：报误报、报漏报、加一条规则、做工程活。加一条规则大约一个下午；路线图里写好的提案都做完了，现在想加新的先开 issue 聊聊。
 ---
 
 # 参与进来
@@ -17,13 +17,7 @@ description: llm-lint 怎么参与：报误报、报漏报、加一条规则、�
 
 流程在 [CONTRIBUTING 的加规则清单](https://github.com/pgy763/llm-lint/blob/main/CONTRIBUTING.md#加一条规则) 里，六步：写 `Rule0NN` → 注册进 `Rules.all()` → `samples/bad` 与 `samples/good` 各一个文件 → `docs/rules.md` 加一节 → 跟着数字走的表（两份 README、规则表、changelog、`action.yml`、测试里的条数）→ 本地 `mvn -B -ntp verify`。
 
-现在想要的三条，判断口径和样例都写在 [ROADMAP](https://github.com/pgy763/llm-lint/blob/main/ROADMAP.md) 里：
-
-| 规则 | 管什么 | 级别 | 难度 |
-| --- | --- | --- | --- |
-| LLM020 | `@Transactional` 方法里等异步结果（`.block()`、`Future.get()`） | warning | good first issue |
-| LLM021 | 返回 `SseEmitter` / `ResponseBodyEmitter` 的方法带 `@Transactional` | error | 中等 |
-| LLM022 | `@Scheduled` / `@Async` 方法里直接调模型 | warning | 中等 |
+路线图里写好的规则提案（LLM019–LLM022）都已经实现了，现在没有现成的一条可以照抄。想加新的？先开一个 issue，说清楚「什么代码会出事、不拦会怎么坏、正例长什么样」；我们把它写成提案（怎么认、级别、样例）之后，照上面的六步动手就行。
 
 写之前先开个 issue 认领，避免两个人同时写一条。
 

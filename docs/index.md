@@ -1,6 +1,6 @@
 ---
 title: llm-lint —— Spring AI / LangChain4j 的静态检查
-description: 20 条规则，拦住事务里调模型、共享 ChatMemory、SSE 30 秒断流、maxTokens 截断、密钥硬编码这些上线才会发现的坑。不联网、不要 API key、不要 classpath。
+description: 22 条规则，拦住事务里调模型、共享 ChatMemory、SSE 30 秒断流、maxTokens 截断、密钥硬编码这些上线才会发现的坑。不联网、不要 API key、不要 classpath。
 ---
 
 # llm-lint
@@ -19,7 +19,7 @@ java -jar llm-lint.jar src/main/java
     path: src/main/java
 ```
 
-## 二十条规则
+## 二十二条规则
 
 每条规则都对应一个具体故障：什么代码会出事、怎么改、为什么。完整说明和例子在 [规则手册](rules.md)。
 
@@ -37,6 +37,8 @@ java -jar llm-lint.jar src/main/java
 | LLM018 | warning | 流式接口没声明 `produces` |
 | LLM019 | warning | `@Tool` 方法里查库、调同步接口或 `Thread.sleep` |
 | LLM020 | warning | `@Transactional` 方法里 `.block()` / `Thread.sleep` |
+| LLM021 | error | `@Transactional` 方法返回 `SseEmitter` / `ResponseBodyEmitter` |
+| LLM022 | warning | `@Scheduled` / `@Async` 方法里直接调模型 |
 
 其余八条（LLM005、LLM008、LLM011–LLM015、LLM017）见[完整列表](rules.md)。
 
@@ -90,7 +92,7 @@ llm-lint --baseline .llm-lint.baseline                        # 之后只看新�
 
 **用起来**
 
-- [规则手册](rules.md) —— 二十条规则，会报的样子、改法、判断范围、为什么
+- [规则手册](rules.md) —— 二十二条规则，会报的样子、改法、判断范围、为什么
 - [配置](config.md) —— `.llm-lint.yml` 的六个键、发现顺序、优先级
 - [基线](baseline.md) —— 存量项目怎么只拦新问题
 - [版本历史](changelog.md) —— 每个版本改了什么、哪些变化可能影响你

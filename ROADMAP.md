@@ -8,6 +8,7 @@
 
 | 版本 | 主题 |
 | --- | --- |
+| 0.16.0 | LLM021 / LLM022：路线图里写好的规则提案全部落地 |
 | 0.15.0 | LLM020：`@Transactional` 里等异步结果（路线图的第二条提案落地了） |
 | 0.14.0 | LLM019：`@Tool` 方法里做阻塞调用（路线图的第一条提案落地了） |
 | 0.13.0 | 贡献者入口：CONTRIBUTING、issue/PR 模板、这份路线图 |
@@ -17,27 +18,9 @@
 
 ## 想加的规则
 
-判断口径和现有二十条一样：只读语法树、靠类型名后缀认模型调用、认不出来就不报。每个提案都写好了「怎么认」和「样例长什么样」，照着写就行；写之前把 [CONTRIBUTING 的加规则清单](CONTRIBUTING.md#加一条规则)过一遍。
+判断口径和现有二十二条一样：只读语法树、靠类型名后缀认模型调用、认不出来就不报。
 
-### LLM021 事务方法返回长连接 · medium
-
-**为什么**：`@Transactional` 方法返回 `SseEmitter` 或 `Flux`，等于让事务活到整个流结束——连接池会在流还没结束时先耗尽。LLM015 覆盖了「返回 `Flux`/`Mono`」，这条补上 SSE 那一半。
-
-**怎么认**：方法返回类型是 `SseEmitter` 或 `ResponseBodyEmitter`，且方法（或类）带 `@Transactional`。
-
-**级别**：error。
-
-**样例**：`samples/bad/LLM021_TransactionalSseEmitter.java`；正例是标了 `@Transactional` 的普通方法 + 另一个非事务的流式方法。
-
-### LLM022 定时任务 / 异步方法里调模型 · medium
-
-**为什么**：`@Scheduled`、`@Async` 里没有请求上下文。用 `ChatMemory` 时要么拿到别人的会话，要么每次新建一份——LLM002 讲的是 Bean 级共享，这条讲的是「根本没有请求边界」。
-
-**怎么认**：方法带 `@Scheduled` 或 `@Async`，方法体里出现模型调用（接收者类型名以 `ChatClient`、`ChatModel`、`EmbeddingModel`、`ChatLanguageModel`、`StreamingChatModel` 结尾）。
-
-**级别**：warning。
-
-**样例**：`samples/bad/LLM022_ScheduledModelCall.java`；正例是 `@Scheduled` 里只发事件、由请求线程去调模型。
+**现在没有现成的规则提案了**——路线图里写好的 LLM019–LLM022 都已经实现。想加新的？先开一个 issue，说清楚「什么代码会出事、不拦会怎么坏、正例长什么样」，我们把它写成一条提案（怎么认、级别、样例）再动手；写代码那一步照 [CONTRIBUTING 的加规则清单](CONTRIBUTING.md#加一条规则)做就行。
 
 ## 想做的工程活
 
@@ -49,7 +32,7 @@
 
 ### `--list-rules --format markdown` · good first issue
 
-把二十条规则渲染成 `docs/rules.md` 顶部那张表，文档就能由代码生成，不用手动同步「二十条」这类数字。
+把二十二条规则渲染成 `docs/rules.md` 顶部那张表，文档就能由代码生成，不用手动同步「二十二条」这类数字。
 
 验收：输出列与现有表格一致（编号 / 级别 / 框架 / 一句话）；有测试锁住「表里的规则数 = `Rules.all().size()`」；`tools/` 下加一个脚本，用它重写 `docs/rules.md` 的表格段落。
 

@@ -8,13 +8,13 @@
 
 **扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那些最贵的坑。**
 
-二十条规则，每一条都对应一个「上线之后才发现」的故障：事务里等模型把连接池拖干、所有人共用一份
+二十二条规则，每一条都对应一个「上线之后才发现」的故障：事务里等模型把连接池拖干、所有人共用一份
 对话记忆、`new SseEmitter()` 三十秒断流、密钥进了 git 历史……
 
 它不跑测试、不连模型、不要 API key、不需要项目的 classpath，只看源码。一条命令，几秒钟。
 
 那些坑的完整现场（报错原文、怎么复现、怎么改）在另一份手册里：<https://pgy763.github.io/llm-dev-pitfalls/>。
-这个工具就是那份手册的「检查器版本」——`samples/bad/` 里二十条反例，每条都能对上手册里的一个条目。
+这个工具就是那份手册的「检查器版本」——`samples/bad/` 里二十二条反例，每条都能对上手册里的一个条目。
 
 ---
 
@@ -43,7 +43,7 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 - 想改阈值：`--fail-on warning`（警告也卡）或 `--fail-on never`（只报告，不失败）。
 - 想知道某条规则为什么存在：`java -jar llm-lint.jar --explain LLM001`。
 
-不想先拿自己的项目试也行：`samples/bad/` 里是二十条反例，`java -jar llm-lint.jar samples/bad`
+不想先拿自己的项目试也行：`samples/bad/` 里是二十二条反例，`java -jar llm-lint.jar samples/bad`
 会把它们全报出来；`samples/good/` 是改好的版本，一条都不报。
 
 两个框架都认：Spring AI 的 `ChatClient` / `ChatModel` / `ChatMemory`，LangChain4j 的
@@ -216,7 +216,7 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
     java -jar llm-lint.jar --format github src/main/java
 ```
 
-## 二十条规则
+## 二十二条规则
 
 | 编号 | 级别 | 只看这个框架 | 拦的是什么 | 出事时你会看到 |
 | --- | --- | --- | --- | --- |
@@ -240,6 +240,8 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
 | LLM018 | warning | 通用 | 返回 `Flux` 却没写 `produces` | 前端还是等很久、然后全出来 |
 | LLM019 | warning | 通用 | `@Tool` 方法里查库 / 调同步接口 / `Thread.sleep` | 模型在等工具，整轮响应被拖住 |
 | LLM020 | warning | 通用 | `@Transactional` 方法里 `.block()` / `Future.get()` / `Thread.sleep` | 事务攥着连接等别的线程 |
+| LLM021 | error | 通用 | `@Transactional` 方法返回 `SseEmitter` / `ResponseBodyEmitter` | 事务活到整个流结束，连接池先耗尽 |
+| LLM022 | warning | 通用 | `@Scheduled` / `@Async` 里直接调模型 | 没有请求就没有会话，记忆要么串台要么每次新建 |
 
 每条的反例、改法、判断范围：**[docs/rules.md](docs/rules.md)**。
 `java -jar llm-lint.jar --list-rules` 随时能看这张表。
@@ -432,7 +434,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.15.0 && git push origin v0.15.0
+git tag v0.16.0 && git push origin v0.16.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
@@ -454,7 +456,7 @@ the GitHub Marketplace*、选个分类。这一步只能手工点，勾完这个
 这个项目的边界很窄：只读语法树、只报认得出的，所以**加一条规则是一件能在一个下午做完的事**。
 
 - 想加规则：照着 [CONTRIBUTING](CONTRIBUTING.md#加一条规则) 的清单做——一个类、一个反例、一个正例、一节文档，`mvn verify` 会把漏掉的地方指出来
-- 不知道从哪下手：[ROADMAP](ROADMAP.md) 里有三条写好判断思路的规则（LLM020–LLM022）和几个工程活，标了难度，标着 `good first issue` 的是真的第一次提 PR 就能做完
+- 不知道从哪下手：[ROADMAP](ROADMAP.md) 里的规则提案（LLM019–LLM022）都做完了，还剩 Docker 镜像、`--files-from` 这些工程活，标了难度，标着 `good first issue` 的是真的第一次提 PR 就能做完
 - 发现误报：用「规则误报」模板开 issue，**贴能复现的代码**，比描述有用十倍
 - 只是想说声好用 / 不好用：开个 [issue](https://github.com/pgy763/llm-lint/issues/new) 说一句，或者点个 star 都行
 

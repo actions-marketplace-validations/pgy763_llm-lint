@@ -11,7 +11,7 @@
 - [Getting started](https://pgy763.github.io/llm-lint/start.html): install, first run, exit codes, output formats
 - [CI recipes](https://pgy763.github.io/llm-lint/integrations.html): GitHub Action, GitLab, Jenkins, pre-commit, Maven
 - [Rules by error message](https://pgy763.github.io/llm-lint/errors.html): NoSuchBeanDefinitionException, HikariPool timeouts, truncated streams
-- [Twenty rules](docs/rules.md): what each rule catches, with counter-examples and fixes
+- [Twenty-two rules](docs/rules.md): what each rule catches, with counter-examples and fixes
 - [Per-project configuration](docs/config.md): `.llm-lint.yml` schema, discovery, precedence
 - [Baseline](docs/baseline.md): accept existing findings so CI only blocks new ones
 - [English README](README.en.md)
