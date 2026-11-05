@@ -27,9 +27,16 @@
 
 ## 想做的工程活
 
-### 规则文档自动校验 · good first issue
+### 多架构镜像 · medium
 
-现在 `DocsTest` 已经锁了「每条规则在 `docs/rules.md` 里有锚点」。可以再进一步：校验顶部表格里的级别、编号、标题和 `Rules.all()` 完全一致，级别写错就红。
+现在只推 `linux/amd64`，Apple Silicon 上跑要走模拟层。用 buildx + QEMU 出 `linux/arm64`，验收：
+`:0.19.0` 的 image index 里两个平台都在，CI 在两个平台各跑一次 `--version` 和 `samples/bad`。
+
+### `--fix` 再多认几条 · medium
+
+目前只有 LLM006 / LLM018 有补丁。LLM007（`maxTokens` 太小）只知道「小了」，不知道该改成多少，
+所以不做；但 LLM019 的阻塞调用、LLM020 的 `.block()` 是可以提示「挪到事务外」的——先想清楚
+补丁要不要动控制流，再决定做不做。
 
 ## 不做的事
 
