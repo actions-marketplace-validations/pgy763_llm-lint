@@ -1,7 +1,9 @@
 # 一个 jar 就能跑，所以镜像也分两层：一层用 Maven 打包，一层只有 JRE 和那个 jar。
 # 最终镜像不带 Maven、不带源码、不带 ~/.m2。
 
-FROM maven:3.9-eclipse-temurin-17 AS build
+# 构建层固定跑在构建机上（$BUILDPLATFORM）：出 arm64 镜像时 Maven 不用在 QEMU 里慢慢跑，
+# 反正 jar 是跨平台的，装进哪个架构的 JRE 都能用。
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-17 AS build
 WORKDIR /build
 
 # 先只拷 pom：依赖不变时这一层能复用，改了源码不用重新下依赖。

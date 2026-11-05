@@ -289,7 +289,8 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
 文件是并行解析的（默认最多 8 个线程），输出顺序和串行完全一样，大仓库快一倍上下；
 机器吃紧或想复现某个顺序时加 `--jobs 1`。
 
-机器上没有 JDK 也能跑：镜像是多阶段构建的，最后那层只有 JRE 和 jar。
+机器上没有 JDK 也能跑：镜像是多阶段构建的，最后那层只有 JRE 和 jar，`amd64` 和 `arm64`
+都有（Apple Silicon 上不用走模拟层）。
 
 ```bash
 docker run --rm -v "$PWD:/src" -w /src ghcr.io/pgy763/llm-lint:latest src/main/java
@@ -463,7 +464,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.19.0 && git push origin v0.19.0
+git tag v0.20.0 && git push origin v0.20.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

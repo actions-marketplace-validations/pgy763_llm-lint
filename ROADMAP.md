@@ -8,6 +8,7 @@
 
 | 版本 | 主题 |
 | --- | --- |
+| 0.20.0 | 多架构镜像：`linux/amd64` + `linux/arm64`，Apple Silicon 原生跑 |
 | 0.19.0 | `--list-rules --format markdown`，规则表由代码生成 |
 | 0.18.0 | Docker 镜像：不装 JDK 也能 `docker run` |
 | 0.17.0 | `--files-from`：只扫清单里列的文件，接别的工具算好的改动列表 |
@@ -26,11 +27,6 @@
 **现在没有现成的规则提案了**——路线图里写好的 LLM019–LLM022 都已经实现。想加新的？先开一个 issue，说清楚「什么代码会出事、不拦会怎么坏、正例长什么样」，我们把它写成一条提案（怎么认、级别、样例）再动手；写代码那一步照 [CONTRIBUTING 的加规则清单](CONTRIBUTING.md#加一条规则)做就行。
 
 ## 想做的工程活
-
-### 多架构镜像 · medium
-
-现在只推 `linux/amd64`，Apple Silicon 上跑要走模拟层。用 buildx + QEMU 出 `linux/arm64`，验收：
-`:0.19.0` 的 image index 里两个平台都在，CI 在两个平台各跑一次 `--version` 和 `samples/bad`。
 
 ### `--fix` 再多认几条 · medium
 

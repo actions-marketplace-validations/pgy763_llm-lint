@@ -187,6 +187,8 @@ class DocsTest {
         String workflow = read(DOCKER_WORKFLOW);
         assertTrue(workflow.contains("ghcr.io"), "镜像得推到 README 里写的那个地址");
         assertTrue(workflow.contains("packages: write"), "推 GHCR 需要 packages: write");
+        assertTrue(workflow.contains("linux/arm64"), "tag 要出 arm64，Apple Silicon 才不用模拟");
+        assertTrue(workflow.contains("setup-qemu-action"), "在 amd64 runner 上构建 arm64 需要 QEMU");
 
         String readme = read(Path.of("README.md"));
         assertTrue(readme.contains("ghcr.io/pgy763/llm-lint:latest"), "README 里的 docker run 得和 workflow 对得上");
