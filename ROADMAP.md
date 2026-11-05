@@ -8,6 +8,7 @@
 
 | 版本 | 主题 |
 | --- | --- |
+| 0.18.0 | Docker 镜像：不装 JDK 也能 `docker run` |
 | 0.17.0 | `--files-from`：只扫清单里列的文件，接别的工具算好的改动列表 |
 | 0.16.0 | LLM021 / LLM022：路线图里写好的规则提案全部落地 |
 | 0.15.0 | LLM020：`@Transactional` 里等异步结果（路线图的第二条提案落地了） |
@@ -24,12 +25,6 @@
 **现在没有现成的规则提案了**——路线图里写好的 LLM019–LLM022 都已经实现。想加新的？先开一个 issue，说清楚「什么代码会出事、不拦会怎么坏、正例长什么样」，我们把它写成一条提案（怎么认、级别、样例）再动手；写代码那一步照 [CONTRIBUTING 的加规则清单](CONTRIBUTING.md#加一条规则)做就行。
 
 ## 想做的工程活
-
-### Docker 镜像 · good first issue
-
-`docker run --rm -v "$PWD:/src" ghcr.io/pgy763/llm-lint:latest /src/src/main/java` 就能跑，不需要装 JDK 和 Maven。
-
-验收：多阶段构建（`maven:3.9-eclipse-temurin-17` 构建 → `eclipse-temurin:17-jre` 运行）、镜像里只有 jar、`ENTRYPOINT ["java","-jar","/app/llm-lint.jar"]`、`.github/workflows/docker.yml` 在打 tag 时推 `ghcr.io/pgy763/llm-lint:<tag>` 和 `:latest`、README 加一节用法。
 
 ### `--list-rules --format markdown` · good first issue
 

@@ -306,6 +306,16 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
 order stays identical to serial runs; add `--jobs 1` on a busy machine or to reproduce a specific
 order.
 
+No JDK needed: the image is built in two stages, so the final layer is just a JRE and the jar.
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src ghcr.io/pgy763/llm-lint:latest src/main/java
+```
+
+Swap `src/main/java` for `--list-rules` or `--since origin/main` — inside the container it's the same
+llm-lint, `/src` is the mounted repo and the working directory, so `.llm-lint.yml`, baselines and
+`--since` all follow the repo.
+
 ### English output and a machine-readable rule list
 
 CI is read by the whole team, and `--lang en` (or `LLM_LINT_LANG=en`) switches the human-facing
@@ -473,7 +483,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.17.0 && git push origin v0.17.0
+git tag v0.18.0 && git push origin v0.18.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

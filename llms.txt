@@ -5,7 +5,7 @@
 > memory, SSE streams that die after 30 seconds, hard-coded API keys — without running tests, calling
 > a model, or needing your classpath. Ships as a CLI and a GitHub Action, with SARIF, JSON,
 > baseline support for existing codebases, --since to scan only files changed in a pull request,
-> --files-from to scan exactly the paths another tool listed,
+> --files-from to scan exactly the paths another tool listed, a Docker image so no JDK is needed,
 > and --fix to print a patch for the two mechanically fixable rules (LLM006, LLM018).
 
 - [Documentation site](https://pgy763.github.io/llm-lint/): getting started, CI recipes, rules by error message
