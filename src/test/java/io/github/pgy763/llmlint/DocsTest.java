@@ -30,6 +30,8 @@ class DocsTest {
 
     private static final Path RULES_DOC = Path.of("docs/rules.md");
     private static final Path SCHEMA = Path.of("docs/llm-lint.schema.json");
+    private static final Path DOCKERFILE = Path.of("Dockerfile");
+    private static final Path DOCKER_WORKFLOW = Path.of(".github/workflows/docker.yml");
 
     private static String read(Path file) throws IOException {
         return Files.readString(file, StandardCharsets.UTF_8);
@@ -168,5 +170,22 @@ class DocsTest {
         overlap.retainAll(shipped);
         assertTrue(overlap.isEmpty(),
                 "ROADMAP 里还写着 " + overlap + "，但它已经实现了——实现完记得从路线图里划掉");
+    }
+
+    @Test
+    void docker镜像的承诺还在() throws IOException {
+        String dockerfile = read(DOCKERFILE);
+        assertTrue(dockerfile.contains("maven:3.9-eclipse-temurin-17"), "构建层要固定住，别用 latest");
+        assertTrue(dockerfile.contains("eclipse-temurin:17-jre"), "最终层应该只有 JRE");
+        assertTrue(dockerfile.contains("ENTRYPOINT [\"java\", \"-jar\", \"/app/llm-lint.jar\"]"),
+                "ENTRYPOINT 得能直接接参数，docker run <image> --version 才管用");
+        assertTrue(dockerfile.contains("USER scanner"), "别用 root 跑");
+
+        String workflow = read(DOCKER_WORKFLOW);
+        assertTrue(workflow.contains("ghcr.io"), "镜像得推到 README 里写的那个地址");
+        assertTrue(workflow.contains("packages: write"), "推 GHCR 需要 packages: write");
+
+        String readme = read(Path.of("README.md"));
+        assertTrue(readme.contains("ghcr.io/pgy763/llm-lint:latest"), "README 里的 docker run 得和 workflow 对得上");
     }
 }
