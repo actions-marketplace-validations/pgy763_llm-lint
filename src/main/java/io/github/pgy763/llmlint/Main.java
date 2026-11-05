@@ -141,6 +141,14 @@ public final class Main implements Callable<Integer> {
             description = "Don't print a report; print a unified diff instead (LLM006 / LLM018 have patches today)")
     private boolean fix;
 
+    @Option(names = "--write",
+            description = "With --fix, apply the patches to the files instead of printing a diff")
+    private boolean write;
+
+    @Option(names = "--only", paramLabel = "<ids>", split = ",",
+            description = "Only run these rules, e.g. --only LLM001,LLM004")
+    private List<String> only = new ArrayList<>();
+
     @Option(names = "--no-context", description = "Don't print the source line in text format")
     private boolean noContext;
 
@@ -185,6 +193,17 @@ public final class Main implements Callable<Integer> {
             return writeInitHook(out, err, initHook);
         }
 
+        if (write && !fix) {
+            err.println(Messages.t("llm-lint: --write 得跟 --fix 一起用（--fix 出补丁，--write 直接写回去）",
+                    "llm-lint: --write only makes sense with --fix (--fix builds the patch, --write applies it)"));
+            return 2;
+        }
+        if (!only.isEmpty() && !disable.isEmpty()) {
+            err.println(Messages.t("llm-lint: 「--only」和「--disable」别一起用：一个说只跑哪些，一个说别跑哪些",
+                    "llm-lint: don't combine --only with --disable: one picks rules, the other drops them"));
+            return 2;
+        }
+
         List<Rule> canonical = Rules.all();
         Config config;
         try {
@@ -199,6 +218,30 @@ public final class Main implements Callable<Integer> {
         }
 
         List<Rule> rules = config.apply(canonical);
+        if (!only.isEmpty()) {
+            Set<String> known = new HashSet<>();
+            for (Rule rule : canonical) {
+                known.add(rule.id());
+            }
+            Set<String> wanted = new HashSet<>();
+            for (String raw : only) {
+                String id = raw.trim().toUpperCase(Locale.ROOT);
+                if (id.isEmpty()) {
+                    continue;
+                }
+                if (!known.contains(id)) {
+                    String guess = Config.nearest(id, known);
+                    err.println(Messages.f("llm-lint: 没有 %s 这条规则", "llm-lint: no such rule: %s", id));
+                    err.println("  " + (guess == null
+                            ? Messages.t("全部规则：llm-lint --list-rules", "All rules: llm-lint --list-rules")
+                            : Messages.f("是不是 %s？全部规则：llm-lint --list-rules",
+                                    "Did you mean %s? All rules: llm-lint --list-rules", guess)));
+                    return 2;
+                }
+                wanted.add(id);
+            }
+            rules = rules.stream().filter(rule -> wanted.contains(rule.id())).toList();
+        }
         if (!disable.isEmpty()) {
             List<String> ids = disable.stream().map(s -> s.trim().toUpperCase(Locale.ROOT)).toList();
             rules = rules.stream().filter(r -> !ids.contains(r.id())).toList();
@@ -371,6 +414,30 @@ public final class Main implements Callable<Integer> {
         }
         findings = List.copyOf(fresh);
 
+        if (fix && write) {
+            Map<String, Integer> changed;
+            try {
+                changed = Fixer.write(findings);
+            } catch (IOException | IllegalArgumentException e) {
+                err.println("llm-lint: " + e.getMessage());
+                return 2;
+            }
+            long fixable = findings.stream().filter(finding -> finding.fix() != null).count();
+            for (Map.Entry<String, Integer> entry : changed.entrySet()) {
+                out.println(Messages.f("改好 %s（%d 处）", "fixed %s (%d spots)", entry.getKey(), entry.getValue()));
+            }
+            out.println(Messages.f("llm-lint: 一共改了 %d 处，动了 %d 个文件",
+                    "llm-lint: %d spots in %d files", changed.values().stream().mapToInt(Integer::intValue).sum(),
+                    changed.size()));
+            out.flush();
+            long left = findings.size() - fixable;
+            if (left > 0) {
+                err.println(Messages.f("llm-lint: 还有 %d 处没有现成补丁（目前只有 LLM006 和 LLM018 能自动修）",
+                        "llm-lint: %d finding(s) have no ready-made patch (only LLM006 and LLM018 are auto-fixable today)",
+                        left));
+            }
+            return 0;
+        }
         if (fix) {
             String patch;
             try {

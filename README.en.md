@@ -267,12 +267,12 @@ Counter-examples, fixes and exact scope for each rule: **[docs/rules.md](docs/ru
 
 ```
 llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|never]
-         [--min-severity info|warning|error] [--disable LLM004,LLM009]
+         [--min-severity info|warning|error] [--disable LLM004,LLM009] [--only LLM001,LLM004]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--init-hook [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
-         [--files-from <file>] [--fix]
+         [--files-from <file>] [--fix [--write]]
          [--lang <zh|en>] [--explain LLM001] [--list-rules [--format markdown|json]] <path...>
 
   --format        text (default) / json / github (Actions annotations) / sarif
@@ -280,6 +280,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --fail-on       error (default) / warning / never (report only)
   --min-severity  findings below this level are neither reported nor counted
   --disable       rules not to run; turn one off when it's a false positive in your project
+  --only          run just these rules (comma separated); cannot be combined with --disable
   --exclude       paths not to scan (glob), comma separated
   --no-context    don't print the source line in text format
   --config        use this config file (default: discover .llm-lint.yml)
@@ -297,6 +298,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --since         only scan files changed since this git ref, e.g. origin/main or HEAD~1
   --files-from    only scan the paths listed in this file, one per line; - reads stdin
   --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches)
+  --write         with --fix, write the patches into the files instead of printing them
   --lang          zh (default) / en; human-readable text only, JSON fields stay put
   --explain       level, framework, rationale and suppression for one rule
   --list-rules    every rule; --format markdown for a table, --format json for a machine-readable catalog
@@ -415,8 +417,18 @@ java -jar llm-lint.jar --fix src > fix.patch
 git apply fix.patch
 ```
 
-It prints a unified diff instead of a report and **never touches your working tree** — you apply it,
-review it, then commit. Only LLM006 (SSE without charset) and LLM018 (streaming endpoint without
+It prints a unified diff instead of a report and **leaves your working tree alone by default** —
+you apply it, review it, then commit.
+
+If you would rather not pipe into `git apply` — or you are on a machine without it — add `--write`:
+
+```bash
+java -jar llm-lint.jar --fix --write src
+```
+
+Each file is rewritten in one go after the patch is computed in memory, so an error halfway through
+leaves no half-written file. It prints how many spots changed per file and, on stderr, how many
+findings still have no patch. `--write` without `--fix` exits `2`. Only LLM006 (SSE without charset) and LLM018 (streaming endpoint without
 `produces`) have patches today; anything else says so instead of pretending.
 
 Exit codes still follow the findings: with errors, `--fix` exits `1`, so use `--fail-on never` or
@@ -449,7 +461,8 @@ It has run on these real codebases with zero findings:
 
 - **Not AI code review**: no model, no network calls; not a byte of your code leaves the machine.
 - **Not a type checker**: no symbol resolution, no dependency jars, just type-name suffixes.
-- **It does not change code**: report only, no autofix. Fixes are described per rule; you decide.
+- **It never changes code on its own**: report only. `--fix` hands you a patch; `--fix --write`
+  applies it — but only when you ask for that flag.
 
 ## Limitations
 
@@ -490,7 +503,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.20.0 && git push origin v0.20.0
+git tag v0.21.0 && git push origin v0.21.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

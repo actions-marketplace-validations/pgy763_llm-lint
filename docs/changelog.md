@@ -9,6 +9,7 @@ description: 每个版本改了什么，哪些变化可能影响已经接入的�
 
 | 版本 | 主要变化 |
 | --- | --- |
+| 0.21.0 | `--only` 只跑指定规则；`--fix --write` 把补丁直接写回文件 |
 | 0.20.0 | Docker 镜像出 `linux/arm64`：打 tag 时构建两个架构，Amd64 与 Apple Silicon 都跑原生镜像 |
 | 0.19.0 | `--list-rules --format markdown`：规则表能直接生成；LLM003 的框架标成 Spring AI；测试锁住表和代码一致 |
 | 0.18.0 | Docker 镜像 `ghcr.io/pgy763/llm-lint`：多阶段构建，最终层只有 JRE 和 jar |

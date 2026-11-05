@@ -250,12 +250,12 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
 
 ```
 llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|never]
-         [--min-severity info|warning|error] [--disable LLM004,LLM009]
+         [--min-severity info|warning|error] [--disable LLM004,LLM009] [--only LLM001,LLM004]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--init-hook [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
-         [--files-from <file>] [--fix]
+         [--files-from <file>] [--fix [--write]]
          [--lang <zh|en>] [--explain LLM001] [--list-rules [--format markdown|json]] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
@@ -263,6 +263,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --fail-on       error（默认）/ warning（警告也卡）/ never（只报告，不失败）
   --min-severity  低于这个级别的不报也不计
   --disable       不跑的规则；某条规则在你项目里是误报就关掉它
+  --only          只跑这几条规则（逗号分隔）；和 --disable 不能一起用
   --exclude       不扫的路径（glob），逗号分隔
   --no-context    text 格式下不打印源码行
   --config        用指定的配置文件（默认自动找仓库里的 .llm-lint.yml）
@@ -280,6 +281,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --since         只扫这个 git 引用以来改动的文件，如 origin/main、HEAD~1
   --files-from    只扫这个文件里列出的路径，一行一个；写 - 从标准输入读
   --fix           不打印报告，改为输出 unified diff（目前 LLM006 / LLM018 有补丁）
+  --write         跟 --fix 一起用：补丁直接写回文件，不再只打印
   --lang          zh（默认）/ en；只换人看的文字，JSON 字段名不变
   --explain       一条规则的级别、框架、理由、抑制方式
   --list-rules    列出全部规则；--format markdown 出表格、--format json 出机器可读的目录
@@ -393,12 +395,22 @@ git apply fix.patch
 ```
 
 它不打印报告，只输出一份 unified diff；不看就改、或者确认后手动 apply，都行。
-**它不会动你的工作区**——补丁要你自己 apply，review 之后再提交。
+**默认不动你的工作区**——补丁要你自己 apply，review 之后再提交。
+
+机器上没有 `git apply`、或者就想让它一步到位，加 `--write`：
+
+```bash
+java -jar llm-lint.jar --fix --write src
+```
+
+它会先改在内存里、再整份写回，所以中途出错不会留下半个文件；每个文件改了几处会打出来，
+这次修完还剩几条没补丁的写在 stderr。`--write` 不加 `--fix` 会直接报错退出 `2`。
 目前只有 LLM006（SSE 缺 charset）和 LLM018（流式接口没写 produces）有现成补丁，
 别的问题会明说「没有现成的补丁」，不会假装改了。
 
 注意退出码还是按问题算：有 error 时 `--fix` 退出 `1`，脚本里用
-`--fail-on never` 或 `|| true` 才不会被它中断。
+`--fail-on never` 或 `|| true` 才不会被它中断。`--fix --write` 是例外——写完就退出 `0`，
+要确认还剩什么，再跑一次普通扫描。
 
 ## 误报这件事
 
@@ -422,7 +434,8 @@ git apply fix.patch
 
 - **不是 AI 代码审查**：没有模型、没有网络请求，你的代码一个字节都不会离开本机。
 - **不是类型检查器**：不做符号解析，不读依赖的 jar，靠类型名后缀判断。
-- **不改代码**：只报告，不自动修。改法写在每条说明里，你自己判断。
+- **不擅自改代码**：默认只报告，改法写在每条说明里；`--fix` 给你补丁，`--fix --write`
+  才会真的写回文件，而且要你显式加上这个参数。
 
 ## 局限
 
@@ -464,7 +477,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.20.0 && git push origin v0.20.0
+git tag v0.21.0 && git push origin v0.21.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

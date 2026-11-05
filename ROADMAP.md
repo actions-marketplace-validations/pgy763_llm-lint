@@ -8,6 +8,7 @@
 
 | 版本 | 主题 |
 | --- | --- |
+| 0.21.0 | `--only` 挑规则跑；`--fix --write` 把补丁写回文件 |
 | 0.20.0 | 多架构镜像：`linux/amd64` + `linux/arm64`，Apple Silicon 原生跑 |
 | 0.19.0 | `--list-rules --format markdown`，规则表由代码生成 |
 | 0.18.0 | Docker 镜像：不装 JDK 也能 `docker run` |
