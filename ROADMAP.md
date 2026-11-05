@@ -8,6 +8,7 @@
 
 | 版本 | 主题 |
 | --- | --- |
+| 0.15.0 | LLM020：`@Transactional` 里等异步结果（路线图的第二条提案落地了） |
 | 0.14.0 | LLM019：`@Tool` 方法里做阻塞调用（路线图的第一条提案落地了） |
 | 0.13.0 | 贡献者入口：CONTRIBUTING、issue/PR 模板、这份路线图 |
 | 0.12.0 | SARIF `partialFingerprints`，Code Scanning 不再重复计数 |
@@ -16,17 +17,7 @@
 
 ## 想加的规则
 
-判断口径和现有十九条一样：只读语法树、靠类型名后缀认模型调用、认不出来就不报。每个提案都写好了「怎么认」和「样例长什么样」，照着写就行；写之前把 [CONTRIBUTING 的加规则清单](CONTRIBUTING.md#加一条规则)过一遍。
-
-### LLM020 事务方法里等异步结果 · good first issue
-
-**为什么**：`@Transactional` 方法里 `.block()` 或 `Thread.sleep()`，数据库连接就一直攥在手里——和 LLM001 是同一个坑的另一半：LLM001 是等模型，这条是等任何东西。
-
-**怎么认**：方法（或所在类）带 `@Transactional`，方法体里出现 `.block()` / `.blockFirst()` / `.blockLast()` / `Future.get()` / `Thread.sleep(`。
-
-**级别**：warning（`Thread.sleep` 也可能是限流退避，别拦死）。
-
-**样例**：`samples/bad/LLM020_TransactionBlocks.java` 事务里 `flux.blockLast()`；`samples/good/LLM020_BlockOutsideTransaction.java` 同样的调用放在事务外。
+判断口径和现有二十条一样：只读语法树、靠类型名后缀认模型调用、认不出来就不报。每个提案都写好了「怎么认」和「样例长什么样」，照着写就行；写之前把 [CONTRIBUTING 的加规则清单](CONTRIBUTING.md#加一条规则)过一遍。
 
 ### LLM021 事务方法返回长连接 · medium
 
@@ -58,7 +49,7 @@
 
 ### `--list-rules --format markdown` · good first issue
 
-把十九条规则渲染成 `docs/rules.md` 顶部那张表，文档就能由代码生成，不用手动同步「十九条」这类数字。
+把二十条规则渲染成 `docs/rules.md` 顶部那张表，文档就能由代码生成，不用手动同步「二十条」这类数字。
 
 验收：输出列与现有表格一致（编号 / 级别 / 框架 / 一句话）；有测试锁住「表里的规则数 = `Rules.all().size()`」；`tools/` 下加一个脚本，用它重写 `docs/rules.md` 的表格段落。
 

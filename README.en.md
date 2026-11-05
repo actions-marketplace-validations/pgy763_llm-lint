@@ -8,7 +8,7 @@ English | [中文](README.md)
 
 **Scan Spring AI / LangChain4j code and stop the expensive mistakes before you commit.**
 
-Nineteen rules, each one a failure you only find out about in production: a model call inside a
+Twenty rules, each one a failure you only find out about in production: a model call inside a
 transaction draining the connection pool, a single shared chat memory leaking one user's context
 into another's, `new SseEmitter()` dropping the stream after thirty seconds, an API key that is
 already in your git history…
@@ -18,7 +18,7 @@ One command, a few seconds.
 
 The full story behind each pitfall (verbatim errors, how to reproduce, how to fix) lives in a
 separate handbook: <https://pgy763.github.io/llm-dev-pitfalls/>. This tool is the "linter version"
-of that handbook — the nineteen counter-examples in `samples/bad/` map one-to-one to its entries.
+of that handbook — the twenty counter-examples in `samples/bad/` map one-to-one to its entries.
 
 ---
 
@@ -48,7 +48,7 @@ llm-lint: 1 issue (1 error / 0 warning), 12 files scanned
 - To change the threshold: `--fail-on warning` (warnings fail too) or `--fail-on never` (report only).
 - To learn why a rule exists: `java -jar llm-lint.jar --explain LLM001`.
 
-You don't have to try it on your own project first: `samples/bad/` holds the nineteen counter-examples
+You don't have to try it on your own project first: `samples/bad/` holds the twenty counter-examples
 and `java -jar llm-lint.jar samples/bad` reports all of them; `samples/good/` is the corrected code
 and reports nothing.
 
@@ -233,7 +233,7 @@ Without the action, just download the jar:
     java -jar llm-lint.jar --format github src/main/java
 ```
 
-## The nineteen rules
+## The twenty rules
 
 | ID | Level | Framework | What it catches | What you see when it bites |
 | --- | --- | --- | --- | --- |
@@ -256,6 +256,7 @@ Without the action, just download the jar:
 | LLM017 | error | any | vector store reads/writes inside a transaction | the connection pool dries up, same as LLM001 |
 | LLM018 | warning | any | `Flux` returned without `produces` | the client still waits, then gets everything at once |
 | LLM019 | warning | any | blocking call inside a `@Tool` method (db, sync HTTP, `sleep`) | the model waits on the tool, the whole response stalls |
+| LLM020 | warning | any | `.block()` / `Future.get()` / `sleep` inside `@Transactional` | the transaction holds the connection while waiting |
 
 Counter-examples, fixes and exact scope for each rule: **[docs/rules.md](docs/rules.md)**.
 `java -jar llm-lint.jar --list-rules` prints this table any time.
@@ -454,7 +455,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.14.0 && git push origin v0.14.0
+git tag v0.15.0 && git push origin v0.15.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a
@@ -477,7 +478,7 @@ does the version show up in Actions search.
 The scope is deliberately narrow — syntax tree only, report only what is unambiguous — which makes **adding one rule an afternoon-sized job**.
 
 - Adding a rule: follow the checklist in [CONTRIBUTING](CONTRIBUTING.md#加一条规则) (one class, one failing sample, one clean sample, one doc section); `mvn verify` tells you what you forgot.
-- Looking for something to do: [ROADMAP](ROADMAP.md) has four rules with the detection logic already written down (LLM019–LLM022) plus a few engineering tasks, each labelled with difficulty. `good first issue` means it really is a first-PR-sized job.
+- Looking for something to do: [ROADMAP](ROADMAP.md) has three rules with the detection logic already written down (LLM020–LLM022) plus a few engineering tasks, each labelled with difficulty. `good first issue` means it really is a first-PR-sized job.
 - Found a false positive: open an issue with the **rule** template and paste the smallest snippet that reproduces it. A snippet beats a description ten times over.
 - Just want to say it helped (or didn't): [open an issue](https://github.com/pgy763/llm-lint/issues/new) or leave a star.
 

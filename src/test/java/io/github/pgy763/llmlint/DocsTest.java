@@ -62,6 +62,19 @@ class DocsTest {
     }
 
     @Test
+    void 规则手册顶部的表列全了每一条() throws IOException {
+        String doc = read(RULES_DOC);
+        long rows = doc.lines().filter(l -> l.startsWith("| [LLM0")).count();
+        assertEquals(Rules.all().size(), rows,
+                "docs/rules.md 顶部那张表少列了规则：表里 " + rows + " 行，代码里 " + Rules.all().size() + " 条");
+        for (Rule rule : Rules.all()) {
+            String anchor = rule.id().toLowerCase(Locale.ROOT);
+            assertTrue(doc.contains("| [" + rule.id() + "](#" + anchor + ")"),
+                    "表里缺 " + rule.id() + " 这一行");
+        }
+    }
+
+    @Test
     void init模板第一行就指向schema() throws IOException {
         String template = ConfigLoader.template(Rules.all());
 

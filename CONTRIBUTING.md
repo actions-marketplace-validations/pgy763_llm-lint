@@ -24,7 +24,7 @@ java -jar target/llm-lint.jar samples/bad
 命令行里常用的几个：
 
 ```bash
-java -jar target/llm-lint.jar --list-rules          # 十九条规则的编号、级别、标题
+java -jar target/llm-lint.jar --list-rules          # 二十条规则的编号、级别、标题
 java -jar target/llm-lint.jar --explain LLM007     # 一条规则的完整解释
 java -jar target/llm-lint.jar --format json samples/bad | head -30
 ```
@@ -33,16 +33,16 @@ java -jar target/llm-lint.jar --format json samples/bad | head -30
 
 一条规则 = 一个 Java 类 + 一个反例 + 一个正例 + 文档 + 一堆跟着数字走的地方。按顺序做：
 
-**1. 写规则类**，放在 `src/main/java/io/github/pgy763/llmlint/rules/`，命名 `Rule019XxxYyy.java`：
+**1. 写规则类**，放在 `src/main/java/io/github/pgy763/llmlint/rules/`，命名 `Rule021XxxYyy.java`：
 
 ```java
-public final class Rule019ToolBlocks extends AbstractRule {
+public final class Rule021TransactionalSseEmitter extends AbstractRule {
 
     @Override
-    public String id() { return "LLM019"; }
+    public String id() { return "LLM021"; }
 
     @Override
-    public String title() { return "工具方法里做阻塞调用"; }
+    public String title() { return "事务方法返回长连接"; }
 
     @Override
     public Severity severity() { return Severity.WARNING; }
@@ -54,7 +54,7 @@ public final class Rule019ToolBlocks extends AbstractRule {
     public String why() { return "一句话说清为什么这是个坑"; }
 
     @Override
-    public String docUrl() { return docInRepo() + "#llm019"; }
+    public String docUrl() { return docInRepo() + "#llm021"; }
 
     @Override
     public List<Finding> check(Path file, CompilationUnit unit) {
@@ -71,13 +71,13 @@ public final class Rule019ToolBlocks extends AbstractRule {
 
 **2. 在 `Rules.all()` 里追加**（`src/main/java/io/github/pgy763/llmlint/Rules.java`），顺序就是输出顺序。
 
-**3. 加样例**：`samples/bad/LLM019_ToolBlocks.java`（必须正好报一条 LLM019）和 `samples/good/LLM019_ToolBlocks.java`（一条都不报）。`tools/gen_samples.py` 里也有样例清单要同步。
+**3. 加样例**：`samples/bad/LLM021_TransactionalSseEmitter.java`（必须正好报一条 LLM021）和 `samples/good/LLM021_TransactionalSseEmitter.java`（一条都不报）。`tools/gen_samples.py` 里也有样例清单要同步。
 
 **4. 写文档** `docs/rules.md`：顶部表格加一行，正文加
 
 ```markdown
-<a id="llm019"></a>
-## LLM019 工具方法里做阻塞调用
+<a id="llm021"></a>
+## LLM021 事务方法返回长连接
 
 **搜这些能找到这条：** `…`、`…`
 
@@ -90,10 +90,10 @@ public final class Rule019ToolBlocks extends AbstractRule {
 
 | 位置 | 改什么 |
 | --- | --- |
-| `README.md` / `README.en.md` | 规则表加一行，「十九条」的说法 |
+| `README.md` / `README.en.md` | 规则表加一行，「二十条」的说法 |
 | `docs/rules.md` 顶部 | 表格加一行 |
 | `docs/changelog.md` | 新版本一行 |
-| `action.yml` 描述 | 里面的「19 rules」 |
+| `action.yml` 描述 | 里面的「20 rules」 |
 | `llms.txt` | 规则数量 |
 | 测试里的条数断言 | `SamplesTest`、`SummaryCliTest`、`MarkdownCliTest`、`ParallelScanTest`、`BaselineCliTest`、`ConfigTest`、`ProjectConfigTest` |
 | `.github/workflows/ci.yml` | json 自检的 `range(1, 20)` 和 `grep -c` 的数量 |
@@ -104,7 +104,7 @@ public final class Rule019ToolBlocks extends AbstractRule {
 
 ```bash
 mvn -B -ntp verify
-java -jar target/llm-lint.jar samples/bad | grep LLM019   # 应该正好一条
+java -jar target/llm-lint.jar samples/bad | grep LLM021   # 应该正好一条
 java -jar target/llm-lint.jar samples/good                # 应该一条都没有
 ```
 
@@ -114,7 +114,7 @@ java -jar target/llm-lint.jar samples/good                # 应该一条都没�
 - 提交信息说清楚**为什么**：
 
   ```
-  feat: LLM019 工具方法里做阻塞调用（0.13.0）
+  feat: LLM021 事务方法返回长连接（0.15.0）
 
   工具调用跑在请求线程上，里面的 JDBC 查询会把整个响应拖住……
   ```

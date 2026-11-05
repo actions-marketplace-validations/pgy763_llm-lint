@@ -42,7 +42,7 @@ class ConfigTest {
                 """);
         List<Rule> rules = config.apply(Rules.all());
 
-        assertEquals(18, rules.size());
+        assertEquals(19, rules.size());
         assertTrue(rules.stream().noneMatch(r -> r.id().equals("LLM004")));
         assertEquals(RuleLevel.OFF, config.levelOf("LLM004").orElseThrow());
         assertEquals("关掉 1 条", config.summary());
@@ -81,7 +81,7 @@ class ConfigTest {
         Config config = config("rules:\n  LLM007: on\n  LLM004: true\n");
         assertTrue(config.levelOf("LLM007").isEmpty());
         assertTrue(config.levelOf("LLM004").isEmpty());
-        assertEquals(19, config.apply(Rules.all()).size());
+        assertEquals(20, config.apply(Rules.all()).size());
         assertEquals("没有改动", config.summary());
     }
 
@@ -157,14 +157,14 @@ class ConfigTest {
                 exclude:
                   # - "**/generated/**"
                 """);
-        assertEquals(19, config.apply(Rules.all()).size());
+        assertEquals(20, config.apply(Rules.all()).size());
         assertEquals(List.of(), config.exclude());
     }
 
     @Test
     void 模板本身必须是一份合法配置() throws Exception {
         Config config = config(ConfigLoader.template(Rules.all()));
-        assertEquals(19, config.apply(Rules.all()).size());
+        assertEquals(20, config.apply(Rules.all()).size());
         assertEquals(List.of(), config.exclude());
         assertEquals("没有改动", config.summary());
     }
@@ -180,7 +180,7 @@ class ConfigTest {
         assertEquals(List.of("**/generated/**"), reparsed.exclude());
         assertEquals("never", reparsed.failOnOrDefault());
         assertEquals("warning", reparsed.minSeverityOrDefault());
-        assertEquals(18, reparsed.apply(Rules.all()).size());
+        assertEquals(19, reparsed.apply(Rules.all()).size());
         assertFalse(printed.contains("LLM999"));
     }
 }

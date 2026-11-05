@@ -1,5 +1,5 @@
 name: 'llm-lint'
-description: 'Static analysis for Spring AI / LangChain4j: 19 rules for model calls in transactions, shared memory, SSE timeouts.'
+description: 'Static analysis for Spring AI / LangChain4j: 20 rules for model calls in transactions, shared memory, SSE timeouts.'
 author: 'pgy763'
 branding:
   icon: 'shield'

@@ -40,7 +40,7 @@ class BaselineCliTest {
         return new Run(code, out.toString(), err.toString());
     }
 
-    /** 把 samples/bad 复制进临时目录：一份「别人家的存量代码」，19 条问题一条不少。 */
+    /** 把 samples/bad 复制进临时目录：一份「别人家的存量代码」，20 条问题一条不少。 */
     private static Path copyBad(Path tmp) throws IOException {
         Path src = tmp.resolve("src");
         Files.createDirectories(src);
@@ -60,13 +60,13 @@ class BaselineCliTest {
         Run save = run("--save-baseline", baseline.toString(), "--fail-on", "never",
                 "--format", "json", src.toString());
         assertEquals(0, save.code, save.combined());
-        assertTrue(save.err().contains("这次新增 19 条"), save.err());
-        assertEquals(20, Files.readAllLines(baseline, StandardCharsets.UTF_8).size(), "表头 + 18 条");
+        assertTrue(save.err().contains("这次新增 20 条"), save.err());
+        assertEquals(21, Files.readAllLines(baseline, StandardCharsets.UTF_8).size(), "表头 + 20 条");
 
         Run again = run("--baseline", baseline.toString(), "--format", "json", src.toString());
         assertEquals(0, again.code, "旧问题全部记在基线里，退出码应该是 0：" + again.combined());
         assertTrue(again.out().contains("[]"), again.out());
-        assertTrue(again.err().contains("另有 19 条在基线里"), again.err());
+        assertTrue(again.err().contains("另有 20 条在基线里"), again.err());
     }
 
     @Test
@@ -84,7 +84,7 @@ class BaselineCliTest {
         assertEquals(1, run.code, run.combined());
         assertTrue(run.out().contains("LLM010_AnotherOne.java"), run.out());
         assertFalse(run.out().contains("LLM001_TransactionalModelCall.java"), "旧的仍然不该出现：" + run.out());
-        assertTrue(run.err().contains("另有 19 条在基线里"), run.err());
+        assertTrue(run.err().contains("另有 20 条在基线里"), run.err());
     }
 
     @Test
@@ -98,7 +98,7 @@ class BaselineCliTest {
         Run save = run("--save-baseline", baseline.toString(), "--fail-on", "never", src.toString());
 
         assertEquals(0, save.code, save.combined());
-        assertEquals(21, Files.readAllLines(baseline, StandardCharsets.UTF_8).size(), "表头 + 20 条");
+        assertEquals(22, Files.readAllLines(baseline, StandardCharsets.UTF_8).size(), "表头 + 21 条");
         assertTrue(save.err().contains("这次新增 1 条"), save.err());
         assertEquals(0, run("--baseline", baseline.toString(), src.toString()).code);
     }
@@ -118,7 +118,7 @@ class BaselineCliTest {
 
         assertEquals(0, run.code, run.combined());
         assertTrue(run.out().contains("[]"), run.out());
-        assertTrue(run.err().contains("llm-lint.baseline（19 条）"), run.err());
+        assertTrue(run.err().contains("llm-lint.baseline（20 条）"), run.err());
     }
 
     @Test
@@ -130,7 +130,7 @@ class BaselineCliTest {
         Run stats = run("--baseline", baseline.toString(), "--baseline-stats", "--format", "json", src.toString());
 
         assertEquals(0, stats.code, stats.combined());
-        assertTrue(stats.err().contains("共 19 条，还在报 19 条"), stats.err());
+        assertTrue(stats.err().contains("共 20 条，还在报 20 条"), stats.err());
         assertTrue(stats.err().contains("按规则：LLM001 1、LLM002 1"), stats.err());
         assertTrue(stats.err().contains("没有修好的旧问题"), stats.err());
     }
@@ -147,7 +147,7 @@ class BaselineCliTest {
         Run stats = run("--baseline", baseline.toString(), "--baseline-stats", src.toString());
 
         assertEquals(0, stats.code, stats.combined());
-        assertTrue(stats.err().contains("共 19 条，还在报 18 条"), stats.err());
+        assertTrue(stats.err().contains("共 20 条，还在报 19 条"), stats.err());
         assertTrue(stats.err().contains("已经修好 1 条（LLM010 1）"), stats.err());
         // 「按规则」只算还在报的：修好的 LLM010 不该再列出来
         assertTrue(stats.err().contains("按规则：LLM001 1"), stats.err());
@@ -166,16 +166,16 @@ class BaselineCliTest {
                 "LLM008_SwallowedIoException.java", "LLM009_HttpClientWithoutTimeout.java",
                 "LLM010_HardcodedKey.java", "LLM011_ClientPerRequest.java", "LLM012_AiServicesPerRequest.java",
                 "LLM013_ModelCallInLoop.java", "LLM014_MemoryConstantId.java", "LLM015_ReactiveInTransaction.java",
-                "LLM016_ToolReturnsReactive.java", "LLM017_VectorInTransaction.java", "LLM018_StreamingWithoutProduces.java", "LLM019_ToolBlocksOnDb.java")) {
+                "LLM016_ToolReturnsReactive.java", "LLM017_VectorInTransaction.java", "LLM018_StreamingWithoutProduces.java", "LLM019_ToolBlocksOnDb.java", "LLM020_TransactionBlocks.java")) {
             Files.delete(src.resolve(name));
         }
 
         Run stats = run("--baseline", baseline.toString(), "--baseline-stats", src.toString());
 
         assertEquals(0, stats.code, stats.combined());
-        assertTrue(stats.err().contains("共 19 条，还在报 0 条"), stats.err());
+        assertTrue(stats.err().contains("共 20 条，还在报 0 条"), stats.err());
         assertTrue(stats.err().contains("基线里的旧问题都不报了"), stats.err());
-        assertTrue(stats.err().contains("已经修好 19 条"), stats.err());
+        assertTrue(stats.err().contains("已经修好 20 条"), stats.err());
     }
 
     @Test
@@ -198,7 +198,7 @@ class BaselineCliTest {
         Run stats = run("--baseline", baseline.toString(), "--baseline-stats", "--quiet", src.toString());
 
         assertEquals(0, stats.code, stats.combined());
-        assertTrue(stats.err().contains("还在报 19 条"), "显式要的统计不该被 --quiet 吞掉：" + stats.err());
+        assertTrue(stats.err().contains("还在报 20 条"), "显式要的统计不该被 --quiet 吞掉：" + stats.err());
         assertFalse(stats.err().contains("个问题（"), "--quiet 该压掉的是那行总结：" + stats.err());
     }
 
@@ -227,13 +227,13 @@ class BaselineCliTest {
 
     @Test
     void 空基线等于没写(@TempDir Path tmp) throws IOException {
-        // 没有 --baseline、也没有配置：行为和以前完全一样（19 条，退出 1）
+        // 没有 --baseline、也没有配置：行为和以前完全一样（20 条，退出 1）
         Path src = copyBad(tmp);
 
         Run run = run("--format", "json", src.toString());
 
         assertEquals(1, run.code, run.combined());
-        assertEquals(19, count(run.out(), "\"ruleId\""));
+        assertEquals(20, count(run.out(), "\"ruleId\""));
     }
 
     private static int count(String text, String needle) {

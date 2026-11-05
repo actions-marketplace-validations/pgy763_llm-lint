@@ -1,15 +1,15 @@
 ---
-title: 十九条规则
+title: 二十条规则
 description: 每条规则会报什么、怎么改、判断范围到哪、为什么这么判——按规则号查。
 ---
 
 # 规则
 
-十九条规则，每条都对应一个「上线之后才发现」的具体故障。规则是纯静态的：不需要联网、不需要
+二十条规则，每条都对应一个「上线之后才发现」的具体故障。规则是纯静态的：不需要联网、不需要
 API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型名的后缀判断这是不是模型调用。
 
 > 这套判断方式有意保守：**宁可漏报，不可乱报**。认不出来的（链式调用、跨文件推断、反射、
-> 配置类里拼出来的 Bean）一律不报。所以「0 个问题」只代表没命中这十九条模式，不代表代码没问题。
+> 配置类里拼出来的 Bean）一律不报。所以「0 个问题」只代表没命中这二十条模式，不代表代码没问题。
 
 表里的级别是**默认值**。某条规则在你项目里不合适——误报，或者你们的要求比它更严——写进仓库根的
 `.llm-lint.yml` 就行，不用改工具、也不用每次在 CI 里手写参数：见 [config.md](config.md)。
@@ -31,6 +31,11 @@ API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型
 | [LLM013](#llm013) | warning | 通用 | 循环里逐个调模型或向量库 |
 | [LLM014](#llm014) | error | LangChain4j | `ChatMemoryProvider` 用了写死的 id |
 | [LLM015](#llm015) | warning | 通用 | 事务方法返回 `Flux` / `Mono` |
+| [LLM016](#llm016) | error | 通用 | `@Tool` 方法返回 `Mono` / `Flux` |
+| [LLM017](#llm017) | error | 通用 | 事务里查 / 写向量库 |
+| [LLM018](#llm018) | warning | 通用 | 流式接口没声明 `produces` |
+| [LLM019](#llm019) | warning | 通用 | `@Tool` 方法里查库 / 调同步接口 / `Thread.sleep` |
+| [LLM020](#llm020) | warning | 通用 | `@Transactional` 方法里 `.block()` / `Future.get()` / `Thread.sleep` |
 
 ---
 
@@ -500,6 +505,32 @@ public String orderStatus(String orderId) {
 调用不算。
 
 ---
+
+<a id="llm020"></a>
+## LLM020 事务方法里等异步结果
+
+**搜这些能找到这条：** `事务里 block`、`@Transactional 里 sleep`、`拿不到连接`、`Connection is not available`
+
+**级别** warning · **框架** 通用 · **本页**
+
+```java
+// 会报
+@Transactional
+public void refreshAll(String orderId) {
+    Flux.just(orderId).map(String::trim).blockLast();
+}
+```
+
+改法：把等待挪到事务外面——先 `block` 拿到结果，再开事务只写库；或者把方法拆成两个，
+事务只包住真正写库的那几行。
+
+为什么：事务的边界是方法，不是那段异步代码。方法里 block 一下、睡一会儿，数据库连接就从方法开始
+一直攥到方法结束；等的是模型还是别的线程并不重要，池子一样会被占满。这条和 LLM001 是同一个坑的
+两半：LLM001 是等模型，这条是等任何东西。
+
+判断范围：方法（或所在类）带 `@Transactional`，方法体里出现 `.block()` / `.blockFirst()` /
+`.blockLast()`、Future 上的 `.get()`、`Thread.sleep(`。内嵌类里的方法不看；`Thread.sleep` 可能是
+限流退避，所以级别是 warning 不是 error。
 
 ## 抑制
 

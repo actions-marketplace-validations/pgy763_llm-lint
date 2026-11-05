@@ -33,7 +33,7 @@ class ParallelScanTest {
         assertEquals(serial.filesScanned(), parallel.filesScanned());
         assertEquals(serial.filesSkipped(), parallel.filesSkipped());
         assertEquals(serial.suppressed(), parallel.suppressed());
-        assertEquals(19, parallel.findings().size());
+        assertEquals(20, parallel.findings().size());
     }
 
     @Test
@@ -68,7 +68,7 @@ class ParallelScanTest {
         Run run = run("--jobs", "4", "--format", "json", "samples/bad");
 
         assertEquals(1, run.code(), run.combined());
-        assertEquals(19, count(run.out(), "\"ruleId\""), run.out());
+        assertEquals(20, count(run.out(), "\"ruleId\""), run.out());
     }
 
     @Test

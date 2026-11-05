@@ -20,7 +20,7 @@ not available` 的人才是真正在踩坑的人——而且数量多一个数�
 1. **About 描述**（Settings → General，或仓库首页右上齿轮）改成英文，覆盖搜索词：
 
    ```
-   Static analysis for Spring AI / LangChain4j (Java): 19 rules for the failures that only show
+   Static analysis for Spring AI / LangChain4j (Java): 20 rules for the failures that only show
    up in production. CLI + GitHub Action, SARIF, baseline.
    ```
 
