@@ -319,7 +319,8 @@ public final class Config {
         return error(file, line, Messages.f("没有 %s 这条规则", "No such rule: %s", id), hint);
     }
 
-    private static String nearest(String id, Collection<String> candidates) {
+    /** 最接近的一个规则号（编辑距离 ≤ 2），给命令行报错提示用；没有接近的就返回 null。 */
+    public static String nearest(String id, Collection<String> candidates) {
         String best = null;
         int bestDistance = Integer.MAX_VALUE;
         for (String candidate : candidates) {

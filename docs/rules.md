@@ -1,18 +1,20 @@
 ---
-title: 十九条规则
+title: 二十二条规则
 description: 每条规则会报什么、怎么改、判断范围到哪、为什么这么判——按规则号查。
 ---
 
 # 规则
 
-十九条规则，每条都对应一个「上线之后才发现」的具体故障。规则是纯静态的：不需要联网、不需要
+二十二条规则，每条都对应一个「上线之后才发现」的具体故障。规则是纯静态的：不需要联网、不需要
 API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型名的后缀判断这是不是模型调用。
 
 > 这套判断方式有意保守：**宁可漏报，不可乱报**。认不出来的（链式调用、跨文件推断、反射、
-> 配置类里拼出来的 Bean）一律不报。所以「0 个问题」只代表没命中这十九条模式，不代表代码没问题。
+> 配置类里拼出来的 Bean）一律不报。所以「0 个问题」只代表没命中这二十二条模式，不代表代码没问题。
 
 表里的级别是**默认值**。某条规则在你项目里不合适——误报，或者你们的要求比它更严——写进仓库根的
 `.llm-lint.yml` 就行，不用改工具、也不用每次在 CI 里手写参数：见 [config.md](config.md)。
+
+这张表也能自己生成：`llm-lint --list-rules --format markdown`（级别、框架跟着配置走，测试会校验它和代码一致）。
 
 | 编号 | 级别 | 框架 | 拦的是什么 |
 | --- | --- | --- | --- |
@@ -31,6 +33,13 @@ API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型
 | [LLM013](#llm013) | warning | 通用 | 循环里逐个调模型或向量库 |
 | [LLM014](#llm014) | error | LangChain4j | `ChatMemoryProvider` 用了写死的 id |
 | [LLM015](#llm015) | warning | 通用 | 事务方法返回 `Flux` / `Mono` |
+| [LLM016](#llm016) | error | 通用 | `@Tool` 方法返回 `Mono` / `Flux` |
+| [LLM017](#llm017) | error | 通用 | 事务里查 / 写向量库 |
+| [LLM018](#llm018) | warning | 通用 | 流式接口没声明 `produces` |
+| [LLM019](#llm019) | warning | 通用 | `@Tool` 方法里查库 / 调同步接口 / `Thread.sleep` |
+| [LLM020](#llm020) | warning | 通用 | `@Transactional` 方法里 `.block()` / `Future.get()` / `Thread.sleep` |
+| [LLM021](#llm021) | error | 通用 | `@Transactional` 方法返回 `SseEmitter` / `ResponseBodyEmitter` |
+| [LLM022](#llm022) | warning | 通用 | `@Scheduled` / `@Async` 方法里直接调模型 |
 
 ---
 
@@ -500,6 +509,85 @@ public String orderStatus(String orderId) {
 调用不算。
 
 ---
+
+<a id="llm020"></a>
+## LLM020 事务方法里等异步结果
+
+**搜这些能找到这条：** `事务里 block`、`@Transactional 里 sleep`、`拿不到连接`、`Connection is not available`
+
+**级别** warning · **框架** 通用 · **本页**
+
+```java
+// 会报
+@Transactional
+public void refreshAll(String orderId) {
+    Flux.just(orderId).map(String::trim).blockLast();
+}
+```
+
+改法：把等待挪到事务外面——先 `block` 拿到结果，再开事务只写库；或者把方法拆成两个，
+事务只包住真正写库的那几行。
+
+为什么：事务的边界是方法，不是那段异步代码。方法里 block 一下、睡一会儿，数据库连接就从方法开始
+一直攥到方法结束；等的是模型还是别的线程并不重要，池子一样会被占满。这条和 LLM001 是同一个坑的
+两半：LLM001 是等模型，这条是等任何东西。
+
+判断范围：方法（或所在类）带 `@Transactional`，方法体里出现 `.block()` / `.blockFirst()` /
+`.blockLast()`、Future 上的 `.get()`、`Thread.sleep(`。内嵌类里的方法不看；`Thread.sleep` 可能是
+限流退避，所以级别是 warning 不是 error。
+
+<a id="llm021"></a>
+## LLM021 事务方法返回长连接
+
+**搜这些能找到这条：** `流式接口连接池被占满`、`事务里 stream`、`@Transactional 返回 SseEmitter`
+
+**级别** error · **框架** 通用 · **本页**
+
+```java
+// 会报
+@Transactional
+public SseEmitter stream(String prompt) {
+    SseEmitter emitter = new SseEmitter(180_000L);
+    emitter.send(SseEmitter.event().data(prompt));
+    return emitter;
+}
+```
+
+改法：事务里只做写库那几行，把 `SseEmitter` 的创建和发送挪到事务外面；要写「开始了 / 结束了」这类
+记录，用一个单独的事务方法去写。
+
+为什么：返回 `SseEmitter` 的方法，事务要等整个流结束才提交——生成多久，连接就攥多久。一个长回答几十秒，
+几个并发就能把连接池占满；现象是「流式接口一多就卡」，根子却是事务一直没结束。LLM015 管的是返回
+`Flux` / `Mono` 的那一半，这条补上 SSE。
+
+判断范围：方法返回类型简单名是 `SseEmitter` 或 `ResponseBodyEmitter`，且方法（或所在类）带
+`@Transactional`。
+
+<a id="llm022"></a>
+## LLM022 定时任务里直接调模型
+
+**搜这些能找到这条：** `@Scheduled 里调模型`、`定时任务上下文`、`会话串台`
+
+**级别** warning · **框架** 通用 · **本页**
+
+```java
+// 会报
+@Scheduled(cron = "0 0 8 * * *")
+public void dailyDigest() {
+    String text = chatClient.prompt("总结一下今天的工单").call().content();
+}
+```
+
+改法：定时任务只决定「要处理什么」——把任务写进队列、表或者事件，模型调用交给有请求上下文的路径；
+如果确实要在后台跑，就显式带上会话 id，别依赖「当前用户」。
+
+为什么：`@Scheduled` / `@Async` 里没有请求，也就没有会话边界。用 `ChatMemory` 时要么拿到别人的会话，
+要么每次都新建一份，上下文永远对不上；出了事也没有请求日志可查。LLM002 讲的是 Bean 级共享，
+这条讲的是「根本没有请求边界」。
+
+判断范围：方法带 `@Scheduled` 或 `@Async`，方法体里出现模型调用（接收者类型名以 `ChatClient` /
+`ChatModel` / `EmbeddingModel` / `ChatLanguageModel` / `StreamingChatModel` 结尾）。只调 Repository
+或发事件的不算。
 
 ## 抑制
 

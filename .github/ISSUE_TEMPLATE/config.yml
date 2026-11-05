@@ -2,7 +2,7 @@ blank_issues_enabled: true
 contact_links:
   - name: 报错原文 → 哪条规则
     url: https://pgy763.github.io/llm-lint/errors.html
-    about: 搜到一句报错，想知道是不是这十九条里的某一条
+    about: 搜到一句报错，想知道是不是这二十二条里的某一条
   - name: 常见问题
     url: https://pgy763.github.io/llm-lint/faq.html
     about: 为什么没报、误报怎么办、和 SpotBugs / Sonar 的分工

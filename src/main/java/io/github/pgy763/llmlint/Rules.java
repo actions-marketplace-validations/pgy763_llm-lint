@@ -19,6 +19,9 @@ import io.github.pgy763.llmlint.rules.Rule016ToolReturnsReactive;
 import io.github.pgy763.llmlint.rules.Rule017VectorInTransaction;
 import io.github.pgy763.llmlint.rules.Rule018StreamingWithoutProduces;
 import io.github.pgy763.llmlint.rules.Rule019ToolBlocks;
+import io.github.pgy763.llmlint.rules.Rule020TransactionBlocks;
+import io.github.pgy763.llmlint.rules.Rule021TransactionalEmitter;
+import io.github.pgy763.llmlint.rules.Rule022ScheduledModelCall;
 
 import java.util.List;
 
@@ -48,6 +51,9 @@ public final class Rules {
                 new Rule016ToolReturnsReactive(),
                 new Rule017VectorInTransaction(),
                 new Rule018StreamingWithoutProduces(),
-                new Rule019ToolBlocks());
+                new Rule019ToolBlocks(),
+                new Rule020TransactionBlocks(),
+                new Rule021TransactionalEmitter(),
+                new Rule022ScheduledModelCall());
     }
 }

@@ -8,13 +8,13 @@
 
 **扫一遍 Spring AI / LangChain4j 代码，在 commit 之前拦住那些最贵的坑。**
 
-十九条规则，每一条都对应一个「上线之后才发现」的故障：事务里等模型把连接池拖干、所有人共用一份
+二十二条规则，每一条都对应一个「上线之后才发现」的故障：事务里等模型把连接池拖干、所有人共用一份
 对话记忆、`new SseEmitter()` 三十秒断流、密钥进了 git 历史……
 
 它不跑测试、不连模型、不要 API key、不需要项目的 classpath，只看源码。一条命令，几秒钟。
 
 那些坑的完整现场（报错原文、怎么复现、怎么改）在另一份手册里：<https://pgy763.github.io/llm-dev-pitfalls/>。
-这个工具就是那份手册的「检查器版本」——`samples/bad/` 里十九条反例，每条都能对上手册里的一个条目。
+这个工具就是那份手册的「检查器版本」——`samples/bad/` 里二十二条反例，每条都能对上手册里的一个条目。
 
 ---
 
@@ -43,7 +43,7 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 - 想改阈值：`--fail-on warning`（警告也卡）或 `--fail-on never`（只报告，不失败）。
 - 想知道某条规则为什么存在：`java -jar llm-lint.jar --explain LLM001`。
 
-不想先拿自己的项目试也行：`samples/bad/` 里是十九条反例，`java -jar llm-lint.jar samples/bad`
+不想先拿自己的项目试也行：`samples/bad/` 里是二十二条反例，`java -jar llm-lint.jar samples/bad`
 会把它们全报出来；`samples/good/` 是改好的版本，一条都不报。
 
 两个框架都认：Spring AI 的 `ChatClient` / `ChatModel` / `ChatMemory`，LangChain4j 的
@@ -216,7 +216,7 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
     java -jar llm-lint.jar --format github src/main/java
 ```
 
-## 十九条规则
+## 二十二条规则
 
 | 编号 | 级别 | 只看这个框架 | 拦的是什么 | 出事时你会看到 |
 | --- | --- | --- | --- | --- |
@@ -239,6 +239,9 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
 | LLM017 | error | 通用 | 事务里查/写向量库 | 和事务里调模型一样，连接池先干 |
 | LLM018 | warning | 通用 | 返回 `Flux` 却没写 `produces` | 前端还是等很久、然后全出来 |
 | LLM019 | warning | 通用 | `@Tool` 方法里查库 / 调同步接口 / `Thread.sleep` | 模型在等工具，整轮响应被拖住 |
+| LLM020 | warning | 通用 | `@Transactional` 方法里 `.block()` / `Future.get()` / `Thread.sleep` | 事务攥着连接等别的线程 |
+| LLM021 | error | 通用 | `@Transactional` 方法返回 `SseEmitter` / `ResponseBodyEmitter` | 事务活到整个流结束，连接池先耗尽 |
+| LLM022 | warning | 通用 | `@Scheduled` / `@Async` 里直接调模型 | 没有请求就没有会话，记忆要么串台要么每次新建 |
 
 每条的反例、改法、判断范围：**[docs/rules.md](docs/rules.md)**。
 `java -jar llm-lint.jar --list-rules` 随时能看这张表。
@@ -247,18 +250,20 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
 
 ```
 llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|never]
-         [--min-severity info|warning|error] [--disable LLM004,LLM009]
+         [--min-severity info|warning|error] [--disable LLM004,LLM009] [--only LLM001,LLM004]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--init-hook [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>] [--fix]
-         [--lang <zh|en>] [--explain LLM001] [--list-rules] <path...>
+         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
+         [--files-from <file>] [--fix [--write]]
+         [--lang <zh|en>] [--explain LLM001] [--list-rules [--format markdown|json]] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
                   / junit（Jenkins / GitLab 认的报告）/ html（一份能双击打开的页面）
   --fail-on       error（默认）/ warning（警告也卡）/ never（只报告，不失败）
   --min-severity  低于这个级别的不报也不计
   --disable       不跑的规则；某条规则在你项目里是误报就关掉它
+  --only          只跑这几条规则（逗号分隔）；和 --disable 不能一起用
   --exclude       不扫的路径（glob），逗号分隔
   --no-context    text 格式下不打印源码行
   --config        用指定的配置文件（默认自动找仓库里的 .llm-lint.yml）
@@ -274,14 +279,27 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --markdown      把一条问题一行的明细写进文件（给 PR 评论用，Action 会原地更新）
   --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
   --since         只扫这个 git 引用以来改动的文件，如 origin/main、HEAD~1
+  --files-from    只扫这个文件里列出的路径，一行一个；写 - 从标准输入读
   --fix           不打印报告，改为输出 unified diff（目前 LLM006 / LLM018 有补丁）
+  --write         跟 --fix 一起用：补丁直接写回文件，不再只打印
   --lang          zh（默认）/ en；只换人看的文字，JSON 字段名不变
   --explain       一条规则的级别、框架、理由、抑制方式
+  --list-rules    列出全部规则；--format markdown 出表格、--format json 出机器可读的目录
 ```
 
 `<path>` 可以是目录，也可以是单个 `.java`。目录会递归找 `.java`，跳过 `target/` 和 `build/`。
 文件是并行解析的（默认最多 8 个线程），输出顺序和串行完全一样，大仓库快一倍上下；
 机器吃紧或想复现某个顺序时加 `--jobs 1`。
+
+机器上没有 JDK 也能跑：镜像是多阶段构建的，最后那层只有 JRE 和 jar，`amd64` 和 `arm64`
+都有（Apple Silicon 上不用走模拟层）。
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src ghcr.io/pgy763/llm-lint:latest src/main/java
+```
+
+把 `src/main/java` 换成 `--list-rules`、`--since origin/main` 都行——容器里就是一个普通的 llm-lint，
+`/src` 是挂进来的仓库、也是工作目录，所以 `.llm-lint.yml`、基线、`--since` 都按仓库里的来。
 
 ### 英文输出和机器可读的规则
 
@@ -292,8 +310,12 @@ CI 是给整个团队看的，或者你习惯英文：加 `--lang en`（也可�
 编辑器插件、内部看板、文档生成器要规则清单时，用机器可读的版本：
 
 ```bash
-llm-lint --list-rules --format json
+llm-lint --list-rules --format json      # 每条规则一个对象，带 level / docUrl / fixable
+llm-lint --list-rules --format markdown  # 直接是一张 Markdown 表，粘进 README 就能用
 ```
+
+`--format markdown` 出的就是本仓库 [规则手册](docs/rules.md) 顶部那张表的形状（级别和框架跟着
+配置文件走）。测试里锁了这张表：级别或框架和代码对不上，CI 就红。
 
 每条规则一个对象：`id`、`title`、`severity`（规则自带默认级别）、`level`（这次实际生效的级别，
 配置文件和 `--disable` 都会体现在这里，关掉就是 `off`）、`framework`、`why`、`docUrl`、
@@ -321,6 +343,19 @@ CI 里用 Action 的话：
   with:
     since: origin/${{ github.base_ref }}
 ```
+
+### 只扫一份清单里的文件
+
+CI 里已经有「这次改了哪些文件」的清单时（别的工具吐出来的、或者 `git diff --name-only` 的结果），
+直接喂给 llm-lint，不用自己拼命令行：
+
+```bash
+git diff --name-only origin/main | llm-lint --files-from -
+llm-lint --files-from changed.txt src/main/java
+```
+
+清单一行一个路径，空行和 `#` 开头的行跳过，不是 `.java` 的行、已经不存在的文件也跳过——删掉的文件
+还留在清单里是常事，不该为这个报错。和路径、和 `--since` 一起给时取交集：三者谁窄听谁的。
 
 ### 某一行确实没有问题
 
@@ -360,12 +395,22 @@ git apply fix.patch
 ```
 
 它不打印报告，只输出一份 unified diff；不看就改、或者确认后手动 apply，都行。
-**它不会动你的工作区**——补丁要你自己 apply，review 之后再提交。
+**默认不动你的工作区**——补丁要你自己 apply，review 之后再提交。
+
+机器上没有 `git apply`、或者就想让它一步到位，加 `--write`：
+
+```bash
+java -jar llm-lint.jar --fix --write src
+```
+
+它会先改在内存里、再整份写回，所以中途出错不会留下半个文件；每个文件改了几处会打出来，
+这次修完还剩几条没补丁的写在 stderr。`--write` 不加 `--fix` 会直接报错退出 `2`。
 目前只有 LLM006（SSE 缺 charset）和 LLM018（流式接口没写 produces）有现成补丁，
 别的问题会明说「没有现成的补丁」，不会假装改了。
 
 注意退出码还是按问题算：有 error 时 `--fix` 退出 `1`，脚本里用
-`--fail-on never` 或 `|| true` 才不会被它中断。
+`--fail-on never` 或 `|| true` 才不会被它中断。`--fix --write` 是例外——写完就退出 `0`，
+要确认还剩什么，再跑一次普通扫描。
 
 ## 误报这件事
 
@@ -389,7 +434,8 @@ git apply fix.patch
 
 - **不是 AI 代码审查**：没有模型、没有网络请求，你的代码一个字节都不会离开本机。
 - **不是类型检查器**：不做符号解析，不读依赖的 jar，靠类型名后缀判断。
-- **不改代码**：只报告，不自动修。改法写在每条说明里，你自己判断。
+- **不擅自改代码**：默认只报告，改法写在每条说明里；`--fix` 给你补丁，`--fix --write`
+  才会真的写回文件，而且要你显式加上这个参数。
 
 ## 局限
 
@@ -431,7 +477,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.14.0 && git push origin v0.14.0
+git tag v0.21.0 && git push origin v0.21.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
@@ -453,7 +499,7 @@ the GitHub Marketplace*、选个分类。这一步只能手工点，勾完这个
 这个项目的边界很窄：只读语法树、只报认得出的，所以**加一条规则是一件能在一个下午做完的事**。
 
 - 想加规则：照着 [CONTRIBUTING](CONTRIBUTING.md#加一条规则) 的清单做——一个类、一个反例、一个正例、一节文档，`mvn verify` 会把漏掉的地方指出来
-- 不知道从哪下手：[ROADMAP](ROADMAP.md) 里有四条写好判断思路的规则（LLM019–LLM022）和几个工程活，标了难度，标着 `good first issue` 的是真的第一次提 PR 就能做完
+- 不知道从哪下手：[ROADMAP](ROADMAP.md) 里的规则提案（LLM019–LLM022）都做完了，还剩 Docker 镜像、`--files-from` 这些工程活，标了难度，标着 `good first issue` 的是真的第一次提 PR 就能做完
 - 发现误报：用「规则误报」模板开 issue，**贴能复现的代码**，比描述有用十倍
 - 只是想说声好用 / 不好用：开个 [issue](https://github.com/pgy763/llm-lint/issues/new) 说一句，或者点个 star 都行
 

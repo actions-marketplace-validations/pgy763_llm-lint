@@ -6,6 +6,7 @@ import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
 import io.github.pgy763.llmlint.engine.Baseline;
 import io.github.pgy763.llmlint.engine.ChangedFiles;
+import io.github.pgy763.llmlint.engine.FileList;
 import io.github.pgy763.llmlint.engine.Fixer;
 import io.github.pgy763.llmlint.engine.LintEngine;
 import io.github.pgy763.llmlint.engine.LintResult;
@@ -91,6 +92,10 @@ public final class Main implements Callable<Integer> {
             description = "Only scan .java files changed since this git ref, e.g. origin/main, HEAD~1")
     private String since;
 
+    @Option(names = "--files-from", paramLabel = "<file>",
+            description = "Only scan the .java files listed in this file, one path per line; - reads stdin")
+    private Path filesFrom;
+
     @Option(names = "--config", paramLabel = "<file>",
             description = "Config file; by default .llm-lint.yml is discovered by walking up from the current directory")
     private Path configFile;
@@ -136,6 +141,14 @@ public final class Main implements Callable<Integer> {
             description = "Don't print a report; print a unified diff instead (LLM006 / LLM018 have patches today)")
     private boolean fix;
 
+    @Option(names = "--write",
+            description = "With --fix, apply the patches to the files instead of printing a diff")
+    private boolean write;
+
+    @Option(names = "--only", paramLabel = "<ids>", split = ",",
+            description = "Only run these rules, e.g. --only LLM001,LLM004")
+    private List<String> only = new ArrayList<>();
+
     @Option(names = "--no-context", description = "Don't print the source line in text format")
     private boolean noContext;
 
@@ -146,7 +159,8 @@ public final class Main implements Callable<Integer> {
             description = "Language for human-readable output: zh (default) or en; also LLM_LINT_LANG")
     private String lang;
 
-    @Option(names = "--list-rules", description = "List every rule and exit")
+    @Option(names = "--list-rules",
+            description = "List every rule and exit; --format markdown gives a table, json a machine-readable catalog")
     private boolean listRules;
 
     @Option(names = "--explain", paramLabel = "<ID>",
@@ -179,6 +193,17 @@ public final class Main implements Callable<Integer> {
             return writeInitHook(out, err, initHook);
         }
 
+        if (write && !fix) {
+            err.println(Messages.t("llm-lint: --write 得跟 --fix 一起用（--fix 出补丁，--write 直接写回去）",
+                    "llm-lint: --write only makes sense with --fix (--fix builds the patch, --write applies it)"));
+            return 2;
+        }
+        if (!only.isEmpty() && !disable.isEmpty()) {
+            err.println(Messages.t("llm-lint: 「--only」和「--disable」别一起用：一个说只跑哪些，一个说别跑哪些",
+                    "llm-lint: don't combine --only with --disable: one picks rules, the other drops them"));
+            return 2;
+        }
+
         List<Rule> canonical = Rules.all();
         Config config;
         try {
@@ -193,6 +218,30 @@ public final class Main implements Callable<Integer> {
         }
 
         List<Rule> rules = config.apply(canonical);
+        if (!only.isEmpty()) {
+            Set<String> known = new HashSet<>();
+            for (Rule rule : canonical) {
+                known.add(rule.id());
+            }
+            Set<String> wanted = new HashSet<>();
+            for (String raw : only) {
+                String id = raw.trim().toUpperCase(Locale.ROOT);
+                if (id.isEmpty()) {
+                    continue;
+                }
+                if (!known.contains(id)) {
+                    String guess = Config.nearest(id, known);
+                    err.println(Messages.f("llm-lint: 没有 %s 这条规则", "llm-lint: no such rule: %s", id));
+                    err.println("  " + (guess == null
+                            ? Messages.t("全部规则：llm-lint --list-rules", "All rules: llm-lint --list-rules")
+                            : Messages.f("是不是 %s？全部规则：llm-lint --list-rules",
+                                    "Did you mean %s? All rules: llm-lint --list-rules", guess)));
+                    return 2;
+                }
+                wanted.add(id);
+            }
+            rules = rules.stream().filter(rule -> wanted.contains(rule.id())).toList();
+        }
         if (!disable.isEmpty()) {
             List<String> ids = disable.stream().map(s -> s.trim().toUpperCase(Locale.ROOT)).toList();
             rules = rules.stream().filter(r -> !ids.contains(r.id())).toList();
@@ -206,12 +255,25 @@ public final class Main implements Callable<Integer> {
             }
             Set<String> active = new HashSet<>();
             rules.forEach(r -> active.add(r.id()));
+            boolean table = "markdown".equalsIgnoreCase(format);
+            if (table) {
+                out.printf("| %s | %s | %s | %s |%n", Messages.t("编号", "ID"),
+                        Messages.t("级别", "Level"), Messages.t("框架", "Framework"),
+                        Messages.t("拦的是什么", "What it catches"));
+                out.println("| --- | --- | --- | --- |");
+            }
             for (Rule r : canonical) {
                 String level = active.contains(r.id())
                         ? config.levelOf(r.id()).map(RuleLevel::label).orElse(r.severity().label())
                         : "off";
-                out.printf("%-7s %-8s %-13s %s%n", r.id(), level, framework(r), r.title());
+                if (table) {
+                    out.printf("| [%s](#%s) | %s | %s | %s |%n",
+                            r.id(), r.id().toLowerCase(Locale.ROOT), level, framework(r), r.title());
+                } else {
+                    out.printf("%-7s %-8s %-13s %s%n", r.id(), level, framework(r), r.title());
+                }
             }
+            out.flush();
             return 0;
         }
 
@@ -226,7 +288,7 @@ public final class Main implements Callable<Integer> {
             return 0;
         }
 
-        if (paths.isEmpty() && since == null) {
+        if (paths.isEmpty() && since == null && filesFrom == null) {
             err.println(Messages.t("要给一个目录或 .java 文件，比如：llm-lint src/main/java",
                     "Give it a directory or a .java file, e.g. llm-lint src/main/java"));
             err.println(Messages.t("看全部规则：llm-lint --list-rules", "See all rules: llm-lint --list-rules"));
@@ -290,6 +352,32 @@ public final class Main implements Callable<Integer> {
             }
         }
 
+        if (filesFrom != null) {
+            List<Path> listed;
+            try {
+                listed = FileList.read(filesFrom);
+            } catch (IOException failure) {
+                err.println("llm-lint: " + failure.getMessage());
+                return 2;
+            }
+            if (listed.isEmpty()) {
+                if (!quiet) {
+                    err.printf(Messages.t("llm-lint: --files-from %s 里没有能扫的 .java 文件%n",
+                            "llm-lint: no scannable .java files listed in %s%n"), filesFrom);
+                }
+                return 0;
+            }
+            // 清单和路径、和 --since 一起给时取交集：三者谁窄听谁的。
+            toScan = since != null || explicitPaths ? ChangedFiles.under(toScan, listed) : listed;
+            if (toScan.isEmpty()) {
+                if (!quiet) {
+                    err.printf(Messages.t("llm-lint: --files-from 里的文件都不在你圈的范围里%n",
+                            "llm-lint: none of the files in --files-from are under the paths you gave%n"));
+                }
+                return 0;
+            }
+        }
+
         LintResult result = new LintEngine(rules, excludes, threads).run(toScan);
         List<Finding> findings = result.findings().stream()
                 .filter(f -> rank(f.severity()) >= rank(parseSeverity(minSeverityValue)))
@@ -326,6 +414,30 @@ public final class Main implements Callable<Integer> {
         }
         findings = List.copyOf(fresh);
 
+        if (fix && write) {
+            Map<String, Integer> changed;
+            try {
+                changed = Fixer.write(findings);
+            } catch (IOException | IllegalArgumentException e) {
+                err.println("llm-lint: " + e.getMessage());
+                return 2;
+            }
+            long fixable = findings.stream().filter(finding -> finding.fix() != null).count();
+            for (Map.Entry<String, Integer> entry : changed.entrySet()) {
+                out.println(Messages.f("改好 %s（%d 处）", "fixed %s (%d spots)", entry.getKey(), entry.getValue()));
+            }
+            out.println(Messages.f("llm-lint: 一共改了 %d 处，动了 %d 个文件",
+                    "llm-lint: %d spots in %d files", changed.values().stream().mapToInt(Integer::intValue).sum(),
+                    changed.size()));
+            out.flush();
+            long left = findings.size() - fixable;
+            if (left > 0) {
+                err.println(Messages.f("llm-lint: 还有 %d 处没有现成补丁（目前只有 LLM006 和 LLM018 能自动修）",
+                        "llm-lint: %d finding(s) have no ready-made patch (only LLM006 and LLM018 are auto-fixable today)",
+                        left));
+            }
+            return 0;
+        }
         if (fix) {
             String patch;
             try {

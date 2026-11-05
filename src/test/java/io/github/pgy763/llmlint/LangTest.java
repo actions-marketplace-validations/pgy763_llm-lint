@@ -28,7 +28,7 @@ class LangTest {
         assertEquals(0, result.code);
         assertTrue(result.out.contains("error"), result.out);
         assertTrue(result.err.contains("findings"), result.err);
-        assertTrue(result.err.contains("scanned 19 files"), result.err);
+        assertTrue(result.err.contains("scanned 22 files"), result.err);
         assertTrue(!result.err.contains("个问题"), result.err);
     }
 

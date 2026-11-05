@@ -9,7 +9,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -30,6 +33,8 @@ class DocsTest {
 
     private static final Path RULES_DOC = Path.of("docs/rules.md");
     private static final Path SCHEMA = Path.of("docs/llm-lint.schema.json");
+    private static final Path DOCKERFILE = Path.of("Dockerfile");
+    private static final Path DOCKER_WORKFLOW = Path.of(".github/workflows/docker.yml");
 
     private static String read(Path file) throws IOException {
         return Files.readString(file, StandardCharsets.UTF_8);
@@ -58,6 +63,19 @@ class DocsTest {
                 assertTrue(doc.contains("<a id=\"" + fragment + "\"></a>"),
                         rule.id() + " 指向 #" + fragment + "，但 docs/rules.md 里没有这个锚点");
             }
+        }
+    }
+
+    @Test
+    void 规则手册顶部的表列全了每一条() throws IOException {
+        String doc = read(RULES_DOC);
+        long rows = doc.lines().filter(l -> l.startsWith("| [LLM0")).count();
+        assertEquals(Rules.all().size(), rows,
+                "docs/rules.md 顶部那张表少列了规则：表里 " + rows + " 行，代码里 " + Rules.all().size() + " 条");
+        for (Rule rule : Rules.all()) {
+            String anchor = rule.id().toLowerCase(Locale.ROOT);
+            assertTrue(doc.contains("| [" + rule.id() + "](#" + anchor + ")"),
+                    "表里缺 " + rule.id() + " 这一行");
         }
     }
 
@@ -155,5 +173,50 @@ class DocsTest {
         overlap.retainAll(shipped);
         assertTrue(overlap.isEmpty(),
                 "ROADMAP 里还写着 " + overlap + "，但它已经实现了——实现完记得从路线图里划掉");
+    }
+
+    @Test
+    void docker镜像的承诺还在() throws IOException {
+        String dockerfile = read(DOCKERFILE);
+        assertTrue(dockerfile.contains("maven:3.9-eclipse-temurin-17"), "构建层要固定住，别用 latest");
+        assertTrue(dockerfile.contains("eclipse-temurin:17-jre"), "最终层应该只有 JRE");
+        assertTrue(dockerfile.contains("ENTRYPOINT [\"java\", \"-jar\", \"/app/llm-lint.jar\"]"),
+                "ENTRYPOINT 得能直接接参数，docker run <image> --version 才管用");
+        assertTrue(dockerfile.contains("USER scanner"), "别用 root 跑");
+
+        String workflow = read(DOCKER_WORKFLOW);
+        assertTrue(workflow.contains("ghcr.io"), "镜像得推到 README 里写的那个地址");
+        assertTrue(workflow.contains("packages: write"), "推 GHCR 需要 packages: write");
+        assertTrue(workflow.contains("linux/arm64"), "tag 要出 arm64，Apple Silicon 才不用模拟");
+        assertTrue(workflow.contains("setup-qemu-action"), "在 amd64 runner 上构建 arm64 需要 QEMU");
+
+        String readme = read(Path.of("README.md"));
+        assertTrue(readme.contains("ghcr.io/pgy763/llm-lint:latest"), "README 里的 docker run 得和 workflow 对得上");
+    }
+
+    @Test
+    void 规则手册的表和代码对得上() throws IOException {
+        // 表的第 2、3 列（级别、框架）是用户最先看的，写错了比少一行更要紧。
+        Map<String, String[]> rows = new HashMap<>();
+        for (String line : read(RULES_DOC).lines().toList()) {
+            if (!line.startsWith("| [LLM")) {
+                continue;
+            }
+            String[] cells = line.split(Pattern.quote("|"));
+            String id = cells[1].trim();
+            id = id.substring(1, id.indexOf(']'));
+            rows.put(id, new String[]{cells[2].trim(), cells[3].trim()});
+        }
+        for (Rule rule : Rules.all()) {
+            String[] cells = rows.get(rule.id());
+            assertNotNull(cells, "规则手册顶部的表里没有 " + rule.id());
+            String framework = switch (rule.framework()) {
+                case "spring-ai" -> "Spring AI";
+                case "langchain4j" -> "LangChain4j";
+                default -> "通用";
+            };
+            assertEquals(rule.severity().label(), cells[0], rule.id() + " 在表里的级别和代码不一样");
+            assertEquals(framework, cells[1], rule.id() + " 在表里的框架和代码不一样");
+        }
     }
 }

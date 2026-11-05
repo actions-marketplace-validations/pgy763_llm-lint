@@ -31,12 +31,7 @@ public final class Fixer {
 
     /** 按文件分组，逐个读源码生成补丁；没有任何可修的项时返回空串。 */
     public static String patch(List<Finding> findings) throws IOException {
-        Map<String, List<Fix>> byFile = new LinkedHashMap<>();
-        for (Finding finding : findings) {
-            if (finding.fix() != null) {
-                byFile.computeIfAbsent(finding.file(), key -> new ArrayList<>()).add(finding.fix());
-            }
-        }
+        Map<String, List<Fix>> byFile = group(findings);
         StringBuilder out = new StringBuilder();
         for (Map.Entry<String, List<Fix>> entry : byFile.entrySet()) {
             String file = entry.getKey();
@@ -49,6 +44,43 @@ public final class Fixer {
             out.append(patch(file, original, entry.getValue()));
         }
         return out.toString();
+    }
+
+    /**
+     * 直接把补丁写回文件（{@code --fix --write}）。返回每个文件改了几处，没改动的文件不在里面。
+     *
+     * <p>写之前先把整份文件读进内存、改完再一次性覆盖，所以中途出错不会留下半个文件。
+     */
+    public static Map<String, Integer> write(List<Finding> findings) throws IOException {
+        Map<String, Integer> done = new LinkedHashMap<>();
+        for (Map.Entry<String, List<Fix>> entry : group(findings).entrySet()) {
+            String file = entry.getKey();
+            Path path = Path.of(file);
+            String original;
+            try {
+                original = Files.readString(path, StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                throw new IOException(Messages.f("读不出 %s：%s", "cannot read %s: %s", file, e.getMessage()), e);
+            }
+            String fixed = apply(original, entry.getValue());
+            if (fixed.equals(original)) {
+                continue;
+            }
+            Files.writeString(path, fixed, StandardCharsets.UTF_8);
+            done.put(file, entry.getValue().size());
+        }
+        return done;
+    }
+
+    /** 有补丁的结果按文件分组，保持扫描顺序。 */
+    private static Map<String, List<Fix>> group(List<Finding> findings) {
+        Map<String, List<Fix>> byFile = new LinkedHashMap<>();
+        for (Finding finding : findings) {
+            if (finding.fix() != null) {
+                byFile.computeIfAbsent(finding.file(), key -> new ArrayList<>()).add(finding.fix());
+            }
+        }
+        return byFile;
     }
 
     /**

@@ -30,8 +30,8 @@ class ReportFormatsCliTest {
         assertEquals(1, result.code(), result.err());
         String xml = result.out();
         assertTrue(xml.startsWith("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"), xml);
-        assertTrue(xml.contains("tests=\"19\" failures=\"10\""), xml);
-        assertEquals(19, count(xml, "<testcase "));
+        assertTrue(xml.contains("tests=\"22\" failures=\"11\""), xml);
+        assertEquals(22, count(xml, "<testcase "));
     }
 
     @Test

@@ -1,0 +1,12 @@
+# 镜像里要的东西 Dockerfile 自己会拷，其余别塞进构建上下文。
+.git
+.github
+target
+docs
+samples
+*.md
+!pom.xml
+.llm-lint.yml
+.llm-lint.baseline
+Dockerfile
+.dockerignore

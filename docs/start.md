@@ -72,7 +72,7 @@ java -jar llm-lint.jar --format html   src/main/java > report.html
 
 `json` / `sarif` 的字段是稳定的；`text` / `github` / `junit` / `html` 里的自然语言会跟着 `--lang` 变。
 
-## 常用的四种收紧方式
+## 常用的几种收紧方式
 
 ```bash
 # 警告也拦（默认只拦 error）
@@ -86,6 +86,21 @@ java -jar llm-lint.jar --exclude "**/generated/**" src/main/java
 
 # 只看这次改动的文件（PR 里最快）
 java -jar llm-lint.jar --since origin/main
+
+# 别的工具已经算好了改动列表，直接喂进来
+git diff --name-only origin/main | java -jar llm-lint.jar --files-from -
+
+# 只想先看某一两条规则在新项目里报多少
+java -jar llm-lint.jar --only LLM001,LLM004 src/main/java
+
+# LLM006 / LLM018 有现成补丁，直接改回文件
+java -jar llm-lint.jar --fix --write src/main/java
+```
+
+机器上没有 JDK 就用镜像（多阶段构建，最终层只有 JRE 和 jar）：
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src ghcr.io/pgy763/llm-lint:latest src/main/java
 ```
 
 这些参数写多了就该搬进仓库：[配置](config.md) 一份 `.llm-lint.yml`，本地和 CI 读同一份。

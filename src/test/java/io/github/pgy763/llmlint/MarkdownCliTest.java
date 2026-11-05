@@ -45,9 +45,9 @@ class MarkdownCliTest {
         assertEquals(1, run.code(), run.err());
         String text = Files.readString(file);
         assertTrue(text.startsWith("<!-- llm-lint -->\n"), text);
-        assertTrue(text.contains("**llm-lint：19 个问题**（10 error / 9 warning），扫了 19 个文件。"), text);
+        assertTrue(text.contains("**llm-lint：22 个问题**（11 error / 11 warning），扫了 22 个文件。"), text);
         assertTrue(text.contains("| 级别 | 规则 | 位置 | 问题 |"), text);
-        assertEquals(19, rows(text), text);
+        assertEquals(22, rows(text), text);
     }
 
     @Test
@@ -81,5 +81,16 @@ class MarkdownCliTest {
 
         assertEquals(2, run.code());
         assertTrue(run.err().contains("评论写不进去"), run.err());
+    }
+
+    @Test
+    void 规则清单能直接出markdown表格() {
+        Run run = run("--list-rules", "--format", "markdown");
+
+        assertEquals(0, run.code(), run.err());
+        assertTrue(run.out().startsWith("| 编号 | 级别 | 框架 | 拦的是什么 |"), run.out());
+        assertEquals(Rules.all().size(),
+                run.out().lines().filter(line -> line.startsWith("| [LLM")).count());
+        assertTrue(run.out().contains("| [LLM003](#llm003) | error | Spring AI |"), run.out());
     }
 }

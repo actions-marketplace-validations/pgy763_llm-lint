@@ -8,7 +8,7 @@ English | [中文](README.md)
 
 **Scan Spring AI / LangChain4j code and stop the expensive mistakes before you commit.**
 
-Nineteen rules, each one a failure you only find out about in production: a model call inside a
+Twenty-two rules, each one a failure you only find out about in production: a model call inside a
 transaction draining the connection pool, a single shared chat memory leaking one user's context
 into another's, `new SseEmitter()` dropping the stream after thirty seconds, an API key that is
 already in your git history…
@@ -18,7 +18,7 @@ One command, a few seconds.
 
 The full story behind each pitfall (verbatim errors, how to reproduce, how to fix) lives in a
 separate handbook: <https://pgy763.github.io/llm-dev-pitfalls/>. This tool is the "linter version"
-of that handbook — the nineteen counter-examples in `samples/bad/` map one-to-one to its entries.
+of that handbook — the twenty counter-examples in `samples/bad/` map one-to-one to its entries.
 
 ---
 
@@ -48,7 +48,7 @@ llm-lint: 1 issue (1 error / 0 warning), 12 files scanned
 - To change the threshold: `--fail-on warning` (warnings fail too) or `--fail-on never` (report only).
 - To learn why a rule exists: `java -jar llm-lint.jar --explain LLM001`.
 
-You don't have to try it on your own project first: `samples/bad/` holds the nineteen counter-examples
+You don't have to try it on your own project first: `samples/bad/` holds the twenty counter-examples
 and `java -jar llm-lint.jar samples/bad` reports all of them; `samples/good/` is the corrected code
 and reports nothing.
 
@@ -233,7 +233,7 @@ Without the action, just download the jar:
     java -jar llm-lint.jar --format github src/main/java
 ```
 
-## The nineteen rules
+## The twenty-two rules
 
 | ID | Level | Framework | What it catches | What you see when it bites |
 | --- | --- | --- | --- | --- |
@@ -256,6 +256,9 @@ Without the action, just download the jar:
 | LLM017 | error | any | vector store reads/writes inside a transaction | the connection pool dries up, same as LLM001 |
 | LLM018 | warning | any | `Flux` returned without `produces` | the client still waits, then gets everything at once |
 | LLM019 | warning | any | blocking call inside a `@Tool` method (db, sync HTTP, `sleep`) | the model waits on the tool, the whole response stalls |
+| LLM020 | warning | any | `.block()` / `Future.get()` / `sleep` inside `@Transactional` | the transaction holds the connection while waiting |
+| LLM021 | error | any | `@Transactional` method returns `SseEmitter` / `ResponseBodyEmitter` | the transaction lives until the stream ends, the pool runs out first |
+| LLM022 | warning | any | model call inside `@Scheduled` / `@Async` | no request means no session: memory bleeds or is recreated every run |
 
 Counter-examples, fixes and exact scope for each rule: **[docs/rules.md](docs/rules.md)**.
 `java -jar llm-lint.jar --list-rules` prints this table any time.
@@ -264,18 +267,20 @@ Counter-examples, fixes and exact scope for each rule: **[docs/rules.md](docs/ru
 
 ```
 llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|never]
-         [--min-severity info|warning|error] [--disable LLM004,LLM009]
+         [--min-severity info|warning|error] [--disable LLM004,LLM009] [--only LLM001,LLM004]
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--init-hook [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>] [--fix]
-         [--lang <zh|en>] [--explain LLM001] [--list-rules] <path...>
+         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
+         [--files-from <file>] [--fix [--write]]
+         [--lang <zh|en>] [--explain LLM001] [--list-rules [--format markdown|json]] <path...>
 
   --format        text (default) / json / github (Actions annotations) / sarif
                   / junit (what Jenkins and GitLab read) / html (a standalone page)
   --fail-on       error (default) / warning / never (report only)
   --min-severity  findings below this level are neither reported nor counted
   --disable       rules not to run; turn one off when it's a false positive in your project
+  --only          run just these rules (comma separated); cannot be combined with --disable
   --exclude       paths not to scan (glob), comma separated
   --no-context    don't print the source line in text format
   --config        use this config file (default: discover .llm-lint.yml)
@@ -291,15 +296,29 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --markdown      write one row per finding to a file (the Action posts it as a sticky PR comment)
   --jobs          how many files to scan at once: default CPU count (max 8), 1 = sequential
   --since         only scan files changed since this git ref, e.g. origin/main or HEAD~1
+  --files-from    only scan the paths listed in this file, one per line; - reads stdin
   --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches)
+  --write         with --fix, write the patches into the files instead of printing them
   --lang          zh (default) / en; human-readable text only, JSON fields stay put
   --explain       level, framework, rationale and suppression for one rule
+  --list-rules    every rule; --format markdown for a table, --format json for a machine-readable catalog
 ```
 
 `<path>` can be a directory or a single `.java` file. Directories are searched recursively, skipping
 `target/` and `build/`. Files are parsed in parallel (up to 8 threads by default) while the output
 order stays identical to serial runs; add `--jobs 1` on a busy machine or to reproduce a specific
 order.
+
+No JDK needed: the image is built in two stages, so the final layer is just a JRE and the jar,
+for both `amd64` and `arm64` (native on Apple Silicon, no emulation).
+
+```bash
+docker run --rm -v "$PWD:/src" -w /src ghcr.io/pgy763/llm-lint:latest src/main/java
+```
+
+Swap `src/main/java` for `--list-rules` or `--since origin/main` — inside the container it's the same
+llm-lint, `/src` is the mounted repo and the working directory, so `.llm-lint.yml`, baselines and
+`--since` all follow the repo.
 
 ### English output and a machine-readable rule list
 
@@ -310,8 +329,13 @@ do not move, so downstream scripts keep working.
 For editor plugins, dashboards or doc generators, ask for the rule list as data:
 
 ```bash
-llm-lint --list-rules --format json
+llm-lint --list-rules --format json      # one object per rule, with level / docUrl / fixable
+llm-lint --list-rules --format markdown  # a Markdown table you can paste into a README
 ```
+
+The markdown output has the same shape as the table at the top of this repo's
+[rule manual](docs/rules.md) (level and framework follow the config file). A test compares that
+table against the code, so a wrong level or framework turns CI red.
 
 One object per rule: `id`, `title`, `severity` (the rule's own default), `level` (what actually
 applies this run; the config file and `--disable` show up here, `off` when turned off),
@@ -339,6 +363,20 @@ With the Action:
   with:
     since: origin/${{ github.base_ref }}
 ```
+
+### Scan a list of files
+
+When CI already knows which files changed — a list from another tool, or the output of
+`git diff --name-only` — hand it over instead of building the command by hand:
+
+```bash
+git diff --name-only origin/main | llm-lint --files-from -
+llm-lint --files-from changed.txt src/main/java
+```
+
+One path per line; blank lines and `#` comments are skipped, and so are non-`.java` entries and files
+that no longer exist (a deleted file still sitting in the list is normal, not an error). Combined with
+a path or `--since`, the three intersect: whichever is narrowest wins.
 
 ### This line really is fine
 
@@ -379,8 +417,18 @@ java -jar llm-lint.jar --fix src > fix.patch
 git apply fix.patch
 ```
 
-It prints a unified diff instead of a report and **never touches your working tree** — you apply it,
-review it, then commit. Only LLM006 (SSE without charset) and LLM018 (streaming endpoint without
+It prints a unified diff instead of a report and **leaves your working tree alone by default** —
+you apply it, review it, then commit.
+
+If you would rather not pipe into `git apply` — or you are on a machine without it — add `--write`:
+
+```bash
+java -jar llm-lint.jar --fix --write src
+```
+
+Each file is rewritten in one go after the patch is computed in memory, so an error halfway through
+leaves no half-written file. It prints how many spots changed per file and, on stderr, how many
+findings still have no patch. `--write` without `--fix` exits `2`. Only LLM006 (SSE without charset) and LLM018 (streaming endpoint without
 `produces`) have patches today; anything else says so instead of pretending.
 
 Exit codes still follow the findings: with errors, `--fix` exits `1`, so use `--fail-on never` or
@@ -413,7 +461,8 @@ It has run on these real codebases with zero findings:
 
 - **Not AI code review**: no model, no network calls; not a byte of your code leaves the machine.
 - **Not a type checker**: no symbol resolution, no dependency jars, just type-name suffixes.
-- **It does not change code**: report only, no autofix. Fixes are described per rule; you decide.
+- **It never changes code on its own**: report only. `--fix` hands you a patch; `--fix --write`
+  applies it — but only when you ask for that flag.
 
 ## Limitations
 
@@ -454,7 +503,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.14.0 && git push origin v0.14.0
+git tag v0.21.0 && git push origin v0.21.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a
@@ -477,7 +526,7 @@ does the version show up in Actions search.
 The scope is deliberately narrow — syntax tree only, report only what is unambiguous — which makes **adding one rule an afternoon-sized job**.
 
 - Adding a rule: follow the checklist in [CONTRIBUTING](CONTRIBUTING.md#加一条规则) (one class, one failing sample, one clean sample, one doc section); `mvn verify` tells you what you forgot.
-- Looking for something to do: [ROADMAP](ROADMAP.md) has four rules with the detection logic already written down (LLM019–LLM022) plus a few engineering tasks, each labelled with difficulty. `good first issue` means it really is a first-PR-sized job.
+- Looking for something to do: [ROADMAP](ROADMAP.md) has no open rule proposals left (LLM019–LLM022 all shipped) — what remains are engineering tasks, each labelled with difficulty. `good first issue` means it really is a first-PR-sized job.
 - Found a false positive: open an issue with the **rule** template and paste the smallest snippet that reproduces it. A snippet beats a description ten times over.
 - Just want to say it helped (or didn't): [open an issue](https://github.com/pgy763/llm-lint/issues/new) or leave a star.
 
