@@ -130,7 +130,7 @@ jobs:
           assert root.tag == "testsuites", root.tag
           cases = root.findall(".//testcase")
           assert len(cases) == 22, f"应该 22 个 testcase，实际 {len(cases)}"
-          assert len(root.findall(".//failure")) == 10, "error 应该是 10 个 failure"
+          assert len(root.findall(".//failure")) == 11, "error 应该是 11 个 failure"
           print("junit ok")
           PY
           java -jar target/llm-lint.jar --format html samples/bad > report.html || true
