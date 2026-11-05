@@ -86,6 +86,9 @@ java -jar llm-lint.jar --exclude "**/generated/**" src/main/java
 
 # 只看这次改动的文件（PR 里最快）
 java -jar llm-lint.jar --since origin/main
+
+# 别的工具已经算好了改动列表，直接喂进来
+git diff --name-only origin/main | java -jar llm-lint.jar --files-from -
 ```
 
 这些参数写多了就该搬进仓库：[配置](config.md) 一份 `.llm-lint.yml`，本地和 CI 读同一份。

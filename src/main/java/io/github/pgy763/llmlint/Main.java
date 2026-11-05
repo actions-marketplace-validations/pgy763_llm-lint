@@ -6,6 +6,7 @@ import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
 import io.github.pgy763.llmlint.engine.Baseline;
 import io.github.pgy763.llmlint.engine.ChangedFiles;
+import io.github.pgy763.llmlint.engine.FileList;
 import io.github.pgy763.llmlint.engine.Fixer;
 import io.github.pgy763.llmlint.engine.LintEngine;
 import io.github.pgy763.llmlint.engine.LintResult;
@@ -90,6 +91,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--since", paramLabel = "<ref>",
             description = "Only scan .java files changed since this git ref, e.g. origin/main, HEAD~1")
     private String since;
+
+    @Option(names = "--files-from", paramLabel = "<file>",
+            description = "Only scan the .java files listed in this file, one path per line; - reads stdin")
+    private Path filesFrom;
 
     @Option(names = "--config", paramLabel = "<file>",
             description = "Config file; by default .llm-lint.yml is discovered by walking up from the current directory")
@@ -226,7 +231,7 @@ public final class Main implements Callable<Integer> {
             return 0;
         }
 
-        if (paths.isEmpty() && since == null) {
+        if (paths.isEmpty() && since == null && filesFrom == null) {
             err.println(Messages.t("要给一个目录或 .java 文件，比如：llm-lint src/main/java",
                     "Give it a directory or a .java file, e.g. llm-lint src/main/java"));
             err.println(Messages.t("看全部规则：llm-lint --list-rules", "See all rules: llm-lint --list-rules"));
@@ -285,6 +290,32 @@ public final class Main implements Callable<Integer> {
                         err.printf(Messages.t("llm-lint: --since %s 以来没有改动的 .java 文件%n",
                                     "llm-lint: no .java files changed since %s%n"), since);
                     }
+                }
+                return 0;
+            }
+        }
+
+        if (filesFrom != null) {
+            List<Path> listed;
+            try {
+                listed = FileList.read(filesFrom);
+            } catch (IOException failure) {
+                err.println("llm-lint: " + failure.getMessage());
+                return 2;
+            }
+            if (listed.isEmpty()) {
+                if (!quiet) {
+                    err.printf(Messages.t("llm-lint: --files-from %s 里没有能扫的 .java 文件%n",
+                            "llm-lint: no scannable .java files listed in %s%n"), filesFrom);
+                }
+                return 0;
+            }
+            // 清单和路径、和 --since 一起给时取交集：三者谁窄听谁的。
+            toScan = since != null || explicitPaths ? ChangedFiles.under(toScan, listed) : listed;
+            if (toScan.isEmpty()) {
+                if (!quiet) {
+                    err.printf(Messages.t("llm-lint: --files-from 里的文件都不在你圈的范围里%n",
+                            "llm-lint: none of the files in --files-from are under the paths you gave%n"));
                 }
                 return 0;
             }

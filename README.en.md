@@ -271,7 +271,8 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--init-hook [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>] [--fix]
+         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
+         [--files-from <file>] [--fix]
          [--lang <zh|en>] [--explain LLM001] [--list-rules] <path...>
 
   --format        text (default) / json / github (Actions annotations) / sarif
@@ -294,6 +295,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --markdown      write one row per finding to a file (the Action posts it as a sticky PR comment)
   --jobs          how many files to scan at once: default CPU count (max 8), 1 = sequential
   --since         only scan files changed since this git ref, e.g. origin/main or HEAD~1
+  --files-from    only scan the paths listed in this file, one per line; - reads stdin
   --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches)
   --lang          zh (default) / en; human-readable text only, JSON fields stay put
   --explain       level, framework, rationale and suppression for one rule
@@ -342,6 +344,20 @@ With the Action:
   with:
     since: origin/${{ github.base_ref }}
 ```
+
+### Scan a list of files
+
+When CI already knows which files changed — a list from another tool, or the output of
+`git diff --name-only` — hand it over instead of building the command by hand:
+
+```bash
+git diff --name-only origin/main | llm-lint --files-from -
+llm-lint --files-from changed.txt src/main/java
+```
+
+One path per line; blank lines and `#` comments are skipped, and so are non-`.java` entries and files
+that no longer exist (a deleted file still sitting in the list is normal, not an error). Combined with
+a path or `--since`, the three intersect: whichever is narrowest wins.
 
 ### This line really is fine
 
@@ -457,7 +473,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.16.0 && git push origin v0.16.0
+git tag v0.17.0 && git push origin v0.17.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

@@ -254,7 +254,8 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
          [--exclude "**/generated/**"] [--no-context] [--quiet]
          [--config .llm-lint.yml | --no-config] [--init] [--init-ci [<dir>]] [--init-hook [<dir>]] [--print-config]
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
-         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>] [--fix]
+         [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
+         [--files-from <file>] [--fix]
          [--lang <zh|en>] [--explain LLM001] [--list-rules] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
@@ -277,6 +278,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --markdown      把一条问题一行的明细写进文件（给 PR 评论用，Action 会原地更新）
   --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
   --since         只扫这个 git 引用以来改动的文件，如 origin/main、HEAD~1
+  --files-from    只扫这个文件里列出的路径，一行一个；写 - 从标准输入读
   --fix           不打印报告，改为输出 unified diff（目前 LLM006 / LLM018 有补丁）
   --lang          zh（默认）/ en；只换人看的文字，JSON 字段名不变
   --explain       一条规则的级别、框架、理由、抑制方式
@@ -324,6 +326,19 @@ CI 里用 Action 的话：
   with:
     since: origin/${{ github.base_ref }}
 ```
+
+### 只扫一份清单里的文件
+
+CI 里已经有「这次改了哪些文件」的清单时（别的工具吐出来的、或者 `git diff --name-only` 的结果），
+直接喂给 llm-lint，不用自己拼命令行：
+
+```bash
+git diff --name-only origin/main | llm-lint --files-from -
+llm-lint --files-from changed.txt src/main/java
+```
+
+清单一行一个路径，空行和 `#` 开头的行跳过，不是 `.java` 的行、已经不存在的文件也跳过——删掉的文件
+还留在清单里是常事，不该为这个报错。和路径、和 `--since` 一起给时取交集：三者谁窄听谁的。
 
 ### 某一行确实没有问题
 
@@ -434,7 +449,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.16.0 && git push origin v0.16.0
+git tag v0.17.0 && git push origin v0.17.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
