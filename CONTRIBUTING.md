@@ -17,7 +17,7 @@ mvn -B -ntp verify
 java -jar target/llm-lint.jar samples/bad
 ```
 
-`verify` 会跑全部测试（现在是 183 个）：`samples/bad` 里每个文件必须**正好**触发一条规则，`samples/good` 里必须一条都不触发。这条约束是这套项目的地基，别绕开它。
+`verify` 会跑全部测试（现在是 223 个）：`samples/bad` 里每个文件必须**正好**触发一条规则，`samples/good` 里必须一条都不触发。这条约束是这套项目的地基，别绕开它。
 
 > **Windows 上如果 `mvn verify` 报 `Cannot run program "cmd.exe" ... CreatePipe`**，加 `-DforkCount=0` 让测试在同一个 JVM 里跑：`mvn -B -ntp verify -DforkCount=0`。这是某些沙箱环境的限制，CI（Linux）不需要。
 
@@ -73,17 +73,29 @@ public final class Rule021TransactionalSseEmitter extends AbstractRule {
 
 **3. 加样例**：`samples/bad/LLM021_TransactionalSseEmitter.java`（必须正好报一条 LLM021）和 `samples/good/LLM021_TransactionalSseEmitter.java`（一条都不报）。`tools/gen_samples.py` 里也有样例清单要同步。
 
-**4. 写文档** `docs/rules.md`：顶部表格加一行，正文加
+**4. 写文档**：先跑一次生成，`docs/rules/llm021.md` 就有了页面的上半截（front matter、级别 / 框架 /
+自动修正那张表、`rule.why()`）——**这一段是生成的，别手改**，重跑 `--docs` 会把它换掉；把
+`## 为什么会踩` 下面的占位符换成真内容：
 
 ```markdown
-<a id="llm021"></a>
-## LLM021 事务方法返回长连接
+## 为什么会踩
 
 **搜这些能找到这条：** `…`、`…`
 
-**为什么会踩：** …（讲机制，不讲口号）
+出现时的样子：…（贴上报错原文或现象）
 
-**怎么改：** …（给出能直接抄的代码）
+怎么改：…（给出能直接抄的代码）
+
+判断范围：…（什么算、什么不算）
+```
+
+再在索引 `docs/rules.md` 里补两条：顶部表格加一行，正文加
+
+```markdown
+<a id="llm021"></a>
+### [LLM021 事务方法返回长连接](https://pgy763.github.io/llm-lint/rules/llm021.html)
+
+error · 通用 —— 一句话说清拦什么
 ```
 
 **5. 跟着数字走的地方**（漏了就会有测试红）：
@@ -91,7 +103,8 @@ public final class Rule021TransactionalSseEmitter extends AbstractRule {
 | 位置 | 改什么 |
 | --- | --- |
 | `README.md` / `README.en.md` | 规则表加一行，「二十二条」的说法 |
-| `docs/rules.md` 顶部 | 表格加一行 |
+| `docs/rules.md` 顶部 | 表格加一行，索引里加一条链接 |
+| `docs/rules/llm021.md` | 跑 `llm-lint --docs docs/rules` 生成，只手写「为什么会踩」这一段 |
 | `docs/changelog.md` | 新版本一行 |
 | `action.yml` 描述 | 里面的「22 rules」 |
 | `llms.txt` | 规则数量 |
@@ -145,4 +158,4 @@ java -jar target/llm-lint.jar samples/good                # 应该一条都没�
 
 ## Contributing (English)
 
-The short version: JDK 17+, `mvn -B -ntp verify` (add `-DforkCount=0` on Windows sandboxes), one rule = one class in `rules/` + one failing sample in `samples/bad` + one clean sample in `samples/good` + a section in `docs/rules.md`. Rules read the Java syntax tree only — no type resolution, no network, no classpath; when in doubt, don't report. Open an issue before starting anything larger than a rule, and keep pull requests single-purpose. See [ROADMAP](ROADMAP.md) for rule ideas with detection sketches already written down.
+The short version: JDK 17+, `mvn -B -ntp verify` (add `-DforkCount=0` on Windows sandboxes), one rule = one class in `rules/` + one failing sample in `samples/bad` + one clean sample in `samples/good` + a page under `docs/rules/` (generate the shell with `--docs`, then fill the hand-written part) plus an index row in `docs/rules.md`. Rules read the Java syntax tree only — no type resolution, no network, no classpath; when in doubt, don't report. Open an issue before starting anything larger than a rule, and keep pull requests single-purpose. See [ROADMAP](ROADMAP.md) for rule ideas with detection sketches already written down.

@@ -20,6 +20,11 @@ public final class RuleCatalog {
     /** 有现成补丁的规则；和 --fix 的支持范围保持一致。 */
     private static final Set<String> FIXABLE = Set.of("LLM006", "LLM018");
 
+    /** 这条规则有没有现成补丁；文档页和规则目录共用一份清单。 */
+    public static boolean isFixable(String id) {
+        return FIXABLE.contains(id);
+    }
+
     private RuleCatalog() {
     }
 

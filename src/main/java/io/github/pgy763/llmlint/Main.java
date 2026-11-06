@@ -20,6 +20,7 @@ import io.github.pgy763.llmlint.report.JsonReport;
 import io.github.pgy763.llmlint.report.JUnitReport;
 import io.github.pgy763.llmlint.report.MarkdownReport;
 import io.github.pgy763.llmlint.report.RuleCatalog;
+import io.github.pgy763.llmlint.report.RulePages;
 import io.github.pgy763.llmlint.report.SarifReport;
 import io.github.pgy763.llmlint.report.SummaryReport;
 import io.github.pgy763.llmlint.report.TextReport;
@@ -118,6 +119,10 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--print-config", description = "Print the effective config (with defaults) and exit")
     private boolean printConfig;
 
+    @Option(names = "--docs", paramLabel = "<dir>",
+            description = "Regenerate the per-rule doc pages under this directory; the hand-written part is kept")
+    private Path docs;
+
     @Option(names = "--baseline", paramLabel = "<file>",
             description = "Only report findings that are not in this baseline; known issues stay in the file and don't block CI (see docs/baseline.md)")
     private Path baselineFile;
@@ -193,6 +198,9 @@ public final class Main implements Callable<Integer> {
         }
         if (initHook != null) {
             return writeInitHook(out, err, initHook);
+        }
+        if (docs != null) {
+            return writeDocs(out, err);
         }
 
         if (write && !fix) {
@@ -620,6 +628,38 @@ public final class Main implements Callable<Integer> {
         out.println(Messages.t("改完跑一次 `llm-lint --print-config`，看实际生效的是什么。",
                 "Then run `llm-lint --print-config` to see what actually takes effect."));
         return 0;
+    }
+
+    /** 每条规则一页；已经有的手写内容保留，只换生成段。 */
+    private Integer writeDocs(PrintWriter out, PrintWriter err) {
+        try {
+            Files.createDirectories(docs);
+            int fresh = 0;
+            int changed = 0;
+            for (Rule rule : Rules.all()) {
+                Path file = docs.resolve(RulePages.fileName(rule));
+                String existing = Files.isRegularFile(file)
+                        ? Files.readString(file, StandardCharsets.UTF_8) : null;
+                String text = RulePages.merge(rule, existing);
+                if (existing == null) {
+                    fresh++;
+                } else if (!existing.equals(text)) {
+                    changed++;
+                }
+                Files.writeString(file, text, StandardCharsets.UTF_8);
+            }
+            out.println(Messages.f("写好 %d 个规则页面：%s（新建 %d 个，更新 %d 个）",
+                    "Wrote %d rule pages under %s (%d new, %d updated)", Rules.all().size(),
+                    ConfigLoader.display(docs, Path.of("").toAbsolutePath()), fresh, changed));
+            out.println(Messages.t("生成段以 `<!-- /generated:llmNNN -->` 结尾，往下是手写部分，不会被覆盖。",
+                    "Everything below `<!-- /generated:llmNNN -->` is hand-written and left alone."));
+            out.flush();
+            return 0;
+        } catch (IOException e) {
+            err.println(Messages.f("llm-lint: 规则页面写不进去：%s", "llm-lint: cannot write rule pages: %s",
+                    e.getMessage()));
+            return 2;
+        }
     }
 
     private Integer writeInitCi(PrintWriter out, PrintWriter err, Path dir) {

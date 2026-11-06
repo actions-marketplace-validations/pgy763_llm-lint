@@ -9,6 +9,7 @@ description: 每个版本改了什么，哪些变化可能影响已经接入的�
 
 | 版本 | 主要变化 |
 | --- | --- |
+| 0.23.0 | 每条规则一页（`docs/rules/llm001.md` …）：页面顶上的表由 `--docs` 生成，手写部分重跑不会丢 |
 | 0.22.0 | `--explain` 支持 `--format markdown` 与 `all`；CI 里加一步「自己过自己的规则」 |
 | 0.21.0 | `--only` 只跑指定规则；`--fix --write` 把补丁直接写回文件 |
 | 0.20.0 | Docker 镜像出 `linux/arm64`：打 tag 时构建两个架构，Amd64 与 Apple Silicon 都跑原生镜像 |

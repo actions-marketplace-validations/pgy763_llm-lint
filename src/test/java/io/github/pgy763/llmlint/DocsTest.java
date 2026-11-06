@@ -3,6 +3,7 @@ package io.github.pgy763.llmlint;
 import io.github.pgy763.llmlint.config.Config;
 import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
+import io.github.pgy763.llmlint.report.RulePages;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -40,6 +41,10 @@ class DocsTest {
         return Files.readString(file, StandardCharsets.UTF_8);
     }
 
+    private static Path page(Rule rule) {
+        return Path.of("docs/rules").resolve(RulePages.fileName(rule));
+    }
+
     @Test
     void 每条规则在仓库文档里都有锚点() throws IOException {
         String doc = read(RULES_DOC);
@@ -47,8 +52,40 @@ class DocsTest {
             String anchor = rule.id().toLowerCase(Locale.ROOT);
             assertTrue(doc.contains("<a id=\"" + anchor + "\"></a>"),
                     "docs/rules.md 少了 " + rule.id() + " 的锚点，docUrl 里的 #" + anchor + " 会 404");
-            assertTrue(doc.contains("\n## " + rule.id() + " "),
-                    "docs/rules.md 少了 " + rule.id() + " 的小节标题");
+            assertTrue(doc.contains("https://pgy763.github.io/llm-lint/rules/" + anchor + ".html"),
+                    "docs/rules.md 的索引没有链到 " + rule.id() + " 自己的页面");
+            assertTrue(Files.isRegularFile(page(rule)), "少了 " + page(rule) + "，站上就是 404");
+            assertTrue(read(page(rule)).contains("\n## " + rule.id() + " "),
+                    page(rule) + " 少了 " + rule.id() + " 的小节标题");
+        }
+    }
+
+    @Test
+    void 规则页的生成段和代码完全一致() throws Exception {
+        // 手改生成段、或者加了规则忘了重跑 --docs，这里都会红。
+        for (Rule rule : Rules.all()) {
+            String text = read(page(rule));
+            assertTrue(text.startsWith(RulePages.head(rule)),
+                    page(rule) + " 的生成段和 RulePages.head() 对不上了——改完代码跑一次 `llm-lint --docs docs/rules`");
+            String marker = RulePages.endMarker(rule);
+            int at = text.indexOf(marker);
+            assertTrue(at > 0, page(rule) + " 少了结束标记 " + marker);
+            assertFalse(text.substring(at + marker.length()).isBlank(),
+                    page(rule) + " 的手写部分被清空了（只剩生成段）");
+            assertFalse(text.contains("这段手写：出现时的样子"),
+                    page(rule) + " 还留着占位符，手写内容没填");
+        }
+    }
+
+    @Test
+    void 页面标题和永久链接跟着规则走() throws Exception {
+        for (Rule rule : Rules.all()) {
+            String text = read(page(rule));
+            String anchor = rule.id().toLowerCase(Locale.ROOT);
+            assertTrue(text.contains("permalink: /rules/" + anchor + ".html"), page(rule) + " 的 permalink 不对");
+            assertTrue(text.contains("title: \"" + rule.id() + " " + rule.title() + "\""),
+                    page(rule) + " 的 title 没跟上规则标题");
+            assertTrue(text.contains("description: \""), page(rule) + " 缺 description，社交卡片会没话说");
         }
     }
 
