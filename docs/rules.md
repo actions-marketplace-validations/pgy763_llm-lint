@@ -15,6 +15,8 @@ API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型
 `.llm-lint.yml` 就行，不用改工具、也不用每次在 CI 里手写参数：见 [config.md](config.md)。
 
 这张表也能自己生成：`llm-lint --list-rules --format markdown`（级别、框架跟着配置走，测试会校验它和代码一致）。
+每一条的简版说明（级别、框架、为什么、怎么抑制）用 `llm-lint --explain LLM007 --format markdown`，
+整本用 `--explain all --format markdown`。
 
 | 编号 | 级别 | 框架 | 拦的是什么 |
 | --- | --- | --- | --- |

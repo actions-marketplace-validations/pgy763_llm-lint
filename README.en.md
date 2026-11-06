@@ -46,9 +46,11 @@ llm-lint: 1 issue (1 error / 0 warning), 12 files scanned
 
 - Exit code is `1` when there is an `error`, so it can block CI directly; warnings alone exit `0`.
 - To change the threshold: `--fail-on warning` (warnings fail too) or `--fail-on never` (report only).
-- To learn why a rule exists: `java -jar llm-lint.jar --explain LLM001`.
+- To learn why a rule exists: `java -jar llm-lint.jar --explain LLM001`;
+  add `--format markdown` to paste it into an issue or a doc (`--explain all --format markdown`
+  prints all twenty-two at once).
 
-You don't have to try it on your own project first: `samples/bad/` holds the twenty counter-examples
+You don't have to try it on your own project first: `samples/bad/` holds the twenty-two counter-examples
 and `java -jar llm-lint.jar samples/bad` reports all of them; `samples/good/` is the corrected code
 and reports nothing.
 
@@ -273,7 +275,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
          [--files-from <file>] [--fix [--write]]
-         [--lang <zh|en>] [--explain LLM001] [--list-rules [--format markdown|json]] <path...>
+         [--lang <zh|en>] [--explain LLM001|all] [--list-rules [--format markdown|json]] <path...>
 
   --format        text (default) / json / github (Actions annotations) / sarif
                   / junit (what Jenkins and GitLab read) / html (a standalone page)
@@ -300,7 +302,8 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches)
   --write         with --fix, write the patches into the files instead of printing them
   --lang          zh (default) / en; human-readable text only, JSON fields stay put
-  --explain       level, framework, rationale and suppression for one rule
+  --explain       level, framework, rationale and suppression for one rule; all for every rule
+                  (with --format markdown you get a document you can paste)
   --list-rules    every rule; --format markdown for a table, --format json for a machine-readable catalog
 ```
 
@@ -503,7 +506,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.21.0 && git push origin v0.21.0
+git tag v0.22.0 && git push origin v0.22.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

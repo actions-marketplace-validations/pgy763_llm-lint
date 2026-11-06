@@ -11,6 +11,7 @@ import io.github.pgy763.llmlint.engine.Fixer;
 import io.github.pgy763.llmlint.engine.LintEngine;
 import io.github.pgy763.llmlint.engine.LintResult;
 import io.github.pgy763.llmlint.engine.SourceCache;
+import io.github.pgy763.llmlint.report.ExplainReport;
 import io.github.pgy763.llmlint.report.GitHubReport;
 import io.github.pgy763.llmlint.lang.Lang;
 import io.github.pgy763.llmlint.lang.Messages;
@@ -164,7 +165,8 @@ public final class Main implements Callable<Integer> {
     private boolean listRules;
 
     @Option(names = "--explain", paramLabel = "<ID>",
-            description = "Explain one rule, e.g. --explain LLM001")
+            description = "Explain one rule, e.g. --explain LLM001; all for every rule"
+                    + " (with --format markdown you get a document you can paste)")
     private String explain;
 
     @Override
@@ -796,18 +798,29 @@ public final class Main implements Callable<Integer> {
     private Integer printExplanation(String id, Config config, List<Rule> canonical,
                                      PrintWriter out, PrintWriter err) {
         String wanted = id.trim().toUpperCase(Locale.ROOT);
-        Rule rule = canonical.stream()
-                .filter(r -> r.id().equals(wanted))
-                .findFirst()
-                .orElse(null);
-        if (rule == null) {
+        boolean everything = wanted.equals("ALL") || wanted.equals("*");
+        List<Rule> picked = everything
+                ? canonical
+                : canonical.stream().filter(rule -> rule.id().equals(wanted)).toList();
+        if (picked.isEmpty()) {
             err.println(Messages.f("没有这条规则：%s。看全部：llm-lint --list-rules",
                     "No such rule: %s. See all: llm-lint --list-rules", id));
             return 2;
         }
+        if ("markdown".equalsIgnoreCase(format)) {
+            out.print(ExplainReport.markdown(picked, config));
+        } else {
+            for (Rule rule : picked) {
+                explainText(rule, config, out);
+            }
+        }
+        out.flush();
+        return 0;
+    }
+
+    private void explainText(Rule rule, Config config, PrintWriter out) {
         out.println(rule.id() + "  " + rule.title());
         out.println();
-        boolean zh = Messages.lang() == Lang.ZH;
         out.println(Messages.t("级别      ", "Level     ") + levelText(config, rule));
         out.println(Messages.t("框架      ", "Framework ") + framework(rule));
         out.println(Messages.t("文档      ", "Docs      ") + rule.docUrl());
@@ -820,7 +833,6 @@ public final class Main implements Callable<Integer> {
                 "To mute it in one place, put `// llm-lint:ignore %s` on that line or the line above.", rule.id()));
         out.println(Messages.f("整条关掉：`--disable %s`，或在 .llm-lint.yml 里写 `%s: off`。",
                 "To turn the rule off entirely: `--disable %s`, or `%s: off` in .llm-lint.yml.", rule.id(), rule.id()));
-        return 0;
     }
 
     /** 配置改过就说明改成了什么，没改就还是规则自己的级别。 */

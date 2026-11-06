@@ -41,7 +41,8 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 
 - 有 `error` 时退出码 `1`，可以直接卡住 CI；只有 `warning` 时退出码 `0`。
 - 想改阈值：`--fail-on warning`（警告也卡）或 `--fail-on never`（只报告，不失败）。
-- 想知道某条规则为什么存在：`java -jar llm-lint.jar --explain LLM001`。
+- 想知道某条规则为什么存在：`java -jar llm-lint.jar --explain LLM001`；
+  要贴进 issue、文档或博客就加 `--format markdown`（`--explain all --format markdown` 一次给全部二十二条）。
 
 不想先拿自己的项目试也行：`samples/bad/` 里是二十二条反例，`java -jar llm-lint.jar samples/bad`
 会把它们全报出来；`samples/good/` 是改好的版本，一条都不报。
@@ -256,7 +257,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
          [--files-from <file>] [--fix [--write]]
-         [--lang <zh|en>] [--explain LLM001] [--list-rules [--format markdown|json]] <path...>
+         [--lang <zh|en>] [--explain LLM001|all] [--list-rules [--format markdown|json]] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
                   / junit（Jenkins / GitLab 认的报告）/ html（一份能双击打开的页面）
@@ -283,7 +284,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --fix           不打印报告，改为输出 unified diff（目前 LLM006 / LLM018 有补丁）
   --write         跟 --fix 一起用：补丁直接写回文件，不再只打印
   --lang          zh（默认）/ en；只换人看的文字，JSON 字段名不变
-  --explain       一条规则的级别、框架、理由、抑制方式
+  --explain       一条规则的级别、框架、理由、抑制方式；all 列全部，配 --format markdown 直接出文档
   --list-rules    列出全部规则；--format markdown 出表格、--format json 出机器可读的目录
 ```
 
@@ -477,7 +478,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.21.0 && git push origin v0.21.0
+git tag v0.22.0 && git push origin v0.22.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
