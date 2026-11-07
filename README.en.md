@@ -508,7 +508,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.25.0 && git push origin v0.25.0
+git tag v0.25.1 && git push origin v0.25.1
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

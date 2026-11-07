@@ -480,7 +480,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.25.0 && git push origin v0.25.0
+git tag v0.25.1 && git push origin v0.25.1
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
@@ -502,7 +502,7 @@ the GitHub Marketplace*、选个分类。这一步只能手工点，勾完这个
 这个项目的边界很窄：只读语法树、只报认得出的，所以**加一条规则是一件能在一个下午做完的事**。
 
 - 想加规则：照着 [CONTRIBUTING](CONTRIBUTING.md#加一条规则) 的清单做——一个类、一个反例、一个正例、一节文档，`mvn verify` 会把漏掉的地方指出来
-- 不知道从哪下手：[ROADMAP](ROADMAP.md) 里的规则提案（LLM019–LLM022）都做完了，还剩 Docker 镜像、`--files-from` 这些工程活，标了难度，标着 `good first issue` 的是真的第一次提 PR 就能做完
+- 不知道从哪下手：[ROADMAP](ROADMAP.md) 里的规则提案（LLM019–LLM022）都做完了，工程活也只剩 `--fix` 扩几条；想加新的先开个 issue 说说用途
 - 发现误报：用「规则误报」模板开 issue，**贴能复现的代码**，比描述有用十倍
 - 只是想说声好用 / 不好用：开个 [issue](https://github.com/pgy763/llm-lint/issues/new) 说一句，或者点个 star 都行
 

@@ -23,10 +23,8 @@ description: llm-lint 怎么参与：报误报、报漏报、加一条规则、�
 
 ## 工程活
 
-- **Docker 镜像**：多阶段构建，`maven:3.9-eclipse-temurin-17` 打 jar、`eclipse-temurin:17-jre` 作运行层，推到 GHCR。给只用 Docker 的 CI 用。
-- **`--list-rules --format markdown`**：把规则表直接生成 Markdown，顺手让 `docs/rules.md` 的表格由它校验，省得每次加规则都要手改五张表。
-- **`--files-from <file|->`**：从文件或 stdin 读要扫的路径，和 `--since`、位置参数取交集。给「只扫这次改动」的自定义 CI 用。
-- **规则文档自动校验**：锚点、样例文件、条数三类，缺一个就让 CI 红。
+- **`--fix` 再多认几条**：目前只有 LLM006（charset）和 LLM018（`produces`）有现成补丁。LLM019 / LLM020 可以提示「挪到事务外」，但先想清楚补丁要不要动控制流——改坏了比不改贵得多。
+- **想加别的**：先开 issue 说用途，能落地的写进 [ROADMAP](ROADMAP.md) 再动手。
 
 ## 审 PR 看三条
 
