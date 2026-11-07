@@ -396,7 +396,22 @@ public final class Main implements Callable<Integer> {
         }
 
         LintResult result = new LintEngine(rules, excludes, threads).run(toScan);
-        List<Finding> findings = result.findings().stream()
+        List<Finding> found = result.findings();
+        if (!config.overrides().isEmpty()) {
+            // 按路径的覆盖只能在拿到文件之后再算：同一条规则，在 src/main 是 error，在
+            // src/generated 可能是 off。规则本身不动，只换这一条结果的级别。
+            List<Finding> adjusted = new ArrayList<>(found.size());
+            for (Finding f : found) {
+                RuleLevel override = config.levelFor(f.ruleId(), f.file()).orElse(null);
+                if (override == RuleLevel.OFF) {
+                    continue;
+                }
+                adjusted.add(override == null ? f : new Finding(f.ruleId(), override.severity(),
+                        f.file(), f.line(), f.column(), f.title(), f.message(), f.docUrl()));
+            }
+            found = adjusted;
+        }
+        List<Finding> findings = found.stream()
                 .filter(f -> rank(f.severity()) >= rank(parseSeverity(minSeverityValue)))
                 .toList();
         // 基线统计要的是「扫出来的全部问题」，不是去掉旧账之后剩下的那些。

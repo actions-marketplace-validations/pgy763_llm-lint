@@ -1,6 +1,7 @@
 package io.github.pgy763.llmlint.config;
 
 import io.github.pgy763.llmlint.Rule;
+import io.github.pgy763.llmlint.engine.Globs;
 import io.github.pgy763.llmlint.lang.Messages;
 
 import java.nio.file.Path;
@@ -24,10 +25,11 @@ import java.util.Set;
 public final class Config {
 
     /** 没有配置文件时用的空配置：什么都不改。 */
-    public static final Config EMPTY = new Config(null, Map.of(), List.of(), null, null, null);
+    public static final Config EMPTY =
+            new Config(null, Map.of(), List.of(), null, null, null, List.of());
 
     private static final Set<String> TOP_LEVEL_KEYS =
-            Set.of("version", "rules", "exclude", "fail-on", "min-severity", "baseline");
+            Set.of("version", "rules", "exclude", "fail-on", "min-severity", "baseline", "overrides");
 
     private final Path file;
     private final Map<String, RuleLevel> levels;
@@ -35,15 +37,17 @@ public final class Config {
     private final String failOn;
     private final String minSeverity;
     private final String baseline;
+    private final List<PathOverride> overrides;
 
     private Config(Path file, Map<String, RuleLevel> levels, List<String> exclude,
-                   String failOn, String minSeverity, String baseline) {
+                   String failOn, String minSeverity, String baseline, List<PathOverride> overrides) {
         this.file = file;
         this.levels = Map.copyOf(levels);
         this.exclude = List.copyOf(exclude);
         this.failOn = failOn;
         this.minSeverity = minSeverity;
         this.baseline = baseline;
+        this.overrides = List.copyOf(overrides);
     }
 
     /** 配置来自哪个文件；没有配置文件时是 null。 */
@@ -69,6 +73,40 @@ public final class Config {
     /** 配置里指定的基线文件（相对配置文件所在目录）；没写就是 null。 */
     public String baseline() {
         return baseline;
+    }
+
+    /**
+     * 一段按路径的覆盖：命中 {@code files} 的文件里，这些规则按这里写的级别算。
+     *
+     * <p>只影响那些路径下的结果，不动规则本身——{@code --list-rules} 和 SARIF 的默认级别
+     * 还是全局那一份。
+     */
+    public record PathOverride(String pattern, Map<String, RuleLevel> levels) {
+
+        public boolean matches(String file) {
+            return Globs.matches(pattern, file);
+        }
+    }
+
+    /** 按路径覆盖，顺序即优先级：后面的命中了就盖掉前面的。 */
+    public List<PathOverride> overrides() {
+        return overrides;
+    }
+
+    /**
+     * 这个文件里的这条规则该按什么级别算；写成 off 就是要它闭嘴。
+     *
+     * <p>返回 empty 表示没有覆盖，用规则自己的级别。
+     */
+    public Optional<RuleLevel> levelFor(String ruleId, String file) {
+        RuleLevel found = null;
+        for (PathOverride override : overrides) {
+            RuleLevel level = override.levels().get(ruleId);
+            if (level != null && override.matches(file)) {
+                found = level;
+            }
+        }
+        return Optional.ofNullable(found);
     }
 
     /** 这条规则被显式写过了吗；返回值可能是 OFF。 */
@@ -103,6 +141,9 @@ public final class Config {
         }
         if (changed > 0) {
             parts.add(Messages.f("改级别 %d 条", "%d re-levelled", changed));
+        }
+        if (!overrides.isEmpty()) {
+            parts.add(Messages.f("按路径覆盖 %d 段", "%d path override(s)", overrides.size()));
         }
         return parts.isEmpty()
                 ? Messages.t("没有改动", "no changes")
@@ -145,6 +186,17 @@ public final class Config {
         if (baseline != null) {
             sb.append("baseline: \"").append(yamlEscape(baseline)).append("\"\n");
         }
+        if (!overrides.isEmpty()) {
+            sb.append("\noverrides:\n");
+            for (PathOverride override : overrides) {
+                sb.append("  - files: \"").append(yamlEscape(override.pattern())).append("\"\n");
+                sb.append("    rules:\n");
+                for (Map.Entry<String, RuleLevel> level : override.levels().entrySet()) {
+                    sb.append("      ").append(level.getKey()).append(": ")
+                            .append(level.getValue().label()).append('\n');
+                }
+            }
+        }
         return sb.toString();
     }
 
@@ -168,6 +220,7 @@ public final class Config {
         String failOn = null;
         String minSeverity = null;
         String baseline = null;
+        List<PathOverride> overrides = new ArrayList<>();
 
         Set<String> knownIds = new LinkedHashSet<>();
         for (Rule rule : known) {
@@ -178,8 +231,8 @@ public final class Config {
             if (!TOP_LEVEL_KEYS.contains(entry.key)) {
                 throw error(file, entry.line,
                         Messages.f("不认识的键「%s」", "Unknown key \"%s\"", entry.key),
-                        Messages.t("能写的只有 version / rules / exclude / fail-on / min-severity / baseline",
-                                "The only keys are version / rules / exclude / fail-on / min-severity / baseline"));
+                        Messages.t("能写的只有 version / rules / exclude / overrides / fail-on / min-severity / baseline",
+                                "The only keys are version / rules / exclude / overrides / fail-on / min-severity / baseline"));
             }
             switch (entry.key) {
                 case "version" -> readVersion(entry, file);
@@ -188,10 +241,11 @@ public final class Config {
                 case "fail-on" -> failOn = readChoice(entry, file, "error", "warning", "never");
                 case "min-severity" -> minSeverity = readChoice(entry, file, "info", "warning", "error");
                 case "baseline" -> baseline = readBaseline(entry, file);
+                case "overrides" -> readOverrides(entry, file, knownIds, overrides);
                 default -> throw new IllegalStateException("unreachable: " + entry.key);
             }
         }
-        return new Config(file, levels, exclude, failOn, minSeverity, baseline);
+        return new Config(file, levels, exclude, failOn, minSeverity, baseline, overrides);
     }
 
     private static void readVersion(MiniYaml.Entry entry, Path file) throws ConfigException {
@@ -260,6 +314,83 @@ public final class Config {
         String pattern = raw.trim();
         if (!pattern.isEmpty()) {
             exclude.add(pattern);
+        }
+    }
+
+    /** 一段一段的按路径覆盖：每段一个 files 模式加几条规则级别，顺序即优先级。 */
+    private static void readOverrides(MiniYaml.Entry entry, Path file, Set<String> knownIds,
+                                      List<PathOverride> overrides) throws ConfigException {
+        MiniYaml.Node value = entry.value;
+        if (value instanceof MiniYaml.Scalar scalar && scalar.value.isEmpty()) {
+            return; // 全是注释，等于没写
+        }
+        if (!(value instanceof MiniYaml.Sequence sequence)) {
+            throw error(file, entry.line,
+                    Messages.t("overrides 下面要写成列表，一项一段",
+                            "overrides must be a list, one item per path"),
+                    Messages.t("示例：overrides:\n  - files: \"src/generated/**\"\n    rules:\n      LLM010: off",
+                            "Example: overrides:\n  - files: \"src/generated/**\"\n    rules:\n      LLM010: off"));
+        }
+        for (MiniYaml.Node item : sequence.items) {
+            if (!(item instanceof MiniYaml.Mapping mapping)) {
+                throw error(file, item.line,
+                        Messages.t("每一段覆盖都要写成 files / rules 两行",
+                                "Each override is a block with files and rules"),
+                        Messages.t("示例：- files: \"src/generated/**\"\n    rules:\n      LLM010: off",
+                                "Example: - files: \"src/generated/**\"\n    rules:\n      LLM010: off"));
+            }
+            String pattern = null;
+            Map<String, RuleLevel> levels = new LinkedHashMap<>();
+            for (MiniYaml.Entry field : mapping.entries) {
+                switch (field.key) {
+                    case "files" -> pattern = scalar(field, file, "files").trim();
+                    case "rules" -> readOverrideRules(field, file, knownIds, levels);
+                    default -> throw error(file, field.line,
+                            Messages.f("这段覆盖里不认识的键「%s」", "Unknown key in this override: %s", field.key),
+                            Messages.t("每段只能写 files 和 rules",
+                                    "An override only has files and rules"));
+                }
+            }
+            if (pattern == null || pattern.isEmpty()) {
+                throw error(file, mapping.line,
+                        Messages.t("这段覆盖少了 files：写清哪些文件按这套级别算",
+                                "This override is missing files: which paths use these levels"),
+                        Messages.t("files 写一个路径模式，比如 \"src/generated/**\"",
+                                "files takes a path pattern such as \"src/generated/**\""));
+            }
+            if (levels.isEmpty()) {
+                throw error(file, mapping.line,
+                        Messages.t("这段覆盖的 rules 是空的：至少写一条规则",
+                                "This override has no rules: write at least one"),
+                        Messages.t("示例：rules:\n      LLM010: off",
+                                "Example: rules:\n      LLM010: off"));
+            }
+            overrides.add(new PathOverride(pattern, levels));
+        }
+    }
+
+    private static void readOverrideRules(MiniYaml.Entry entry, Path file, Set<String> knownIds,
+                                          Map<String, RuleLevel> out) throws ConfigException {
+        MiniYaml.Node value = entry.value;
+        if (value instanceof MiniYaml.Scalar scalar && scalar.value.isEmpty()) {
+            return;
+        }
+        if (!(value instanceof MiniYaml.Mapping mapping)) {
+            throw error(file, entry.line,
+                    Messages.t("覆盖里的 rules 也要写成 `LLM010: off` 这样的键值对",
+                            "The rules field inside an override is `LLM010: off` style pairs"),
+                    Messages.t("示例：rules:\n      LLM010: off",
+                            "Example: rules:\n      LLM010: off"));
+        }
+        for (MiniYaml.Entry rule : mapping.entries) {
+            String id = rule.key.trim().toUpperCase(Locale.ROOT);
+            if (!knownIds.contains(id)) {
+                throw unknownRule(file, rule.line, id, knownIds);
+            }
+            RuleLevel level = parseLevel(id, scalar(rule, file, "级别"), file, rule.line);
+            if (level != null) {
+                out.put(id, level);
+            }
         }
     }
 

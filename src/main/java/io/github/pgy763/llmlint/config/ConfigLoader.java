@@ -112,6 +112,15 @@ public final class ConfigLoader {
         sb.append(Messages.t(
                 "# baseline: .llm-lint.baseline   # 存量问题的清单，写了就只报新问题，见 docs/baseline.md\n",
                 "# baseline: .llm-lint.baseline   # accepted old findings; only new ones get reported, see docs/baseline.md\n"));
+        sb.append(Messages.t(
+                "#\n# overrides:            # 某段路径下换个级别：生成代码松、主代码严\n"
+                        + "#   - files: \"src/generated/**\"\n"
+                        + "#     rules:\n"
+                        + "#       LLM010: off\n",
+                "#\n# overrides:            # change levels under some paths: lenient for generated code\n"
+                        + "#   - files: \"src/generated/**\"\n"
+                        + "#     rules:\n"
+                        + "#       LLM010: off\n"));
         return sb.toString();
     }
 

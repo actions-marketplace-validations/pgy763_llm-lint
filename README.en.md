@@ -107,6 +107,11 @@ rules:
 exclude:
   - "**/generated/**"   # generated code, overwritten anyway
 
+overrides:              # still scanned, but hard-coded keys in generated code are not findings
+  - files: "src/generated/**"
+    rules:
+      LLM010: off
+
 fail-on: error
 ```
 
@@ -123,6 +128,9 @@ java -jar llm-lint.jar src/main/java
   to defaults arrive automatically instead of being pinned to stale values copied into the config.
 - **Precedence**: command line > config file > defaults. A temporary `--fail-on never` in CI still
   wins, and `--exclude` is **unioned** with `exclude` from the config.
+- **Per-path levels**: `exclude` skips a subtree entirely; `overrides` keep scanning it but change
+  the level of findings under those paths (`off` drops them). Later entries win over earlier ones;
+  see [docs/config.md](docs/config.md#overrides).
 - **Errors say what's wrong**: unknown keys, rules and levels exit `2` with `file:line`, and a
   misspelled rule id gets a suggestion (`LLM07` → `did you mean LLM007?`). No guessing, no skipping —
   silently ignoring a typo is much harder to debug than failing.
@@ -508,7 +516,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.26.0 && git push origin v0.26.0
+git tag v0.27.0 && git push origin v0.27.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a

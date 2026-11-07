@@ -218,9 +218,14 @@ final class MiniYaml {
                     throw err(line, "列表里不支持再套一层列表");
                 }
                 int colon = colonOf(rest);
-                if (colon >= 0 && (colon + 1 == rest.length()
-                        || Character.isWhitespace(rest.charAt(colon + 1)))) {
-                    throw err(line, "列表里只放标量（路径、编号），不要写成 `键: 值`");
+                boolean startsKey = colon >= 0
+                        && (colon + 1 == rest.length() || Character.isWhitespace(rest.charAt(colon + 1)));
+                if (startsKey) {
+                    // `- files: "src/**"` 这种：把 `- ` 换成两个空格，剩下的按普通映射读，
+                    // 它底下的 rules 也跟着缩进读。改的是这一行本身，不新建列表。
+                    lines.set(pos, new Line(line.no(), indent + 2, rest));
+                    seq.items.add(mapping(indent + 2));
+                    continue;
                 }
                 seq.items.add(new Scalar(scalarText(rest, line), line.no()));
                 pos++;

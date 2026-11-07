@@ -183,4 +183,140 @@ class ConfigTest {
         assertEquals(21, reparsed.apply(Rules.all()).size());
         assertFalse(printed.contains("LLM999"));
     }
+
+    @Test
+    void 按路径覆盖只动那些文件里的结果() throws Exception {
+        Config config = config("""
+                version: 1
+                overrides:
+                  - files: "src/generated/**"
+                    rules:
+                      LLM010: off
+                  - files: "src/main/**"
+                    rules:
+                      LLM007: error
+                """);
+
+        assertEquals(RuleLevel.OFF,
+                config.levelFor("LLM010", "src/generated/java/demo/Keys.java").orElseThrow());
+        assertEquals(RuleLevel.ERROR,
+                config.levelFor("LLM007", "src/main/java/demo/A.java").orElseThrow());
+        // 没命中的路径不受影响，返回 empty 表示「用规则自己的级别」
+        assertTrue(config.levelFor("LLM010", "src/main/java/demo/A.java").isEmpty());
+        assertTrue(config.levelFor("LLM007", "src/generated/java/demo/Keys.java").isEmpty());
+        // 规则本身不动：--list-rules 看到的还是全局那份
+        assertEquals(22, config.apply(Rules.all()).size());
+        assertEquals("按路径覆盖 2 段", config.summary());
+    }
+
+    @Test
+    void 覆盖的路径写法跟exclude一样宽容() throws Exception {
+        Config config = config("""
+                overrides:
+                  - files: "generated"
+                    rules:
+                      LLM010: off
+                """);
+
+        assertEquals(RuleLevel.OFF, config.levelFor("LLM010", "src/generated/A.java").orElseThrow());
+        assertTrue(config.levelFor("LLM010", "src/main/A.java").isEmpty());
+    }
+
+    @Test
+    void 后面那段覆盖盖掉前面那段() throws Exception {
+        Config config = config("""
+                overrides:
+                  - files: "src/**"
+                    rules:
+                      LLM007: info
+                  - files: "src/legacy/**"
+                    rules:
+                      LLM007: error
+                """);
+
+        assertEquals(RuleLevel.ERROR,
+                config.levelFor("LLM007", "src/legacy/Old.java").orElseThrow());
+        assertEquals(RuleLevel.INFO,
+                config.levelFor("LLM007", "src/new/New.java").orElseThrow());
+    }
+
+    @Test
+    void overrides写错了会说清楚是哪一段哪一行() {
+        String missingFiles = errorOf("""
+                overrides:
+                  - rules:
+                      LLM010: off
+                """);
+        assertTrue(missingFiles.contains(":2:"), missingFiles);
+        assertTrue(missingFiles.contains("files"), missingFiles);
+
+        String unknownKey = errorOf("""
+                overrides:
+                  - files: "src/**"
+                    rulez:
+                      LLM010: off
+                """);
+        assertTrue(unknownKey.contains("rulez"), unknownKey);
+        assertTrue(unknownKey.contains("files 和 rules"), unknownKey);
+
+        String unknownRule = errorOf("""
+                overrides:
+                  - files: "src/**"
+                    rules:
+                      LLM07: off
+                """);
+        assertTrue(unknownRule.contains("LLM07"), unknownRule);
+        assertTrue(unknownRule.contains("LLM007"), unknownRule);
+
+        String badLevel = errorOf("""
+                overrides:
+                  - files: "src/**"
+                    rules:
+                      LLM010: quiet
+                """);
+        assertTrue(badLevel.contains("quiet"), badLevel);
+        assertTrue(badLevel.contains("off"), badLevel);
+
+        String emptyRules = errorOf("""
+                overrides:
+                  - files: "src/**"
+                    rules:
+                """);
+        assertTrue(emptyRules.contains("rules"), emptyRules);
+    }
+
+    @Test
+    void overrides下面全是注释等于没写() throws Exception {
+        Config config = config("""
+                version: 1
+                overrides:
+                  # - files: "src/generated/**"
+                  #   rules:
+                  #     LLM010: off
+                """);
+
+        assertEquals(List.of(), config.overrides());
+        assertEquals("没有改动", config.summary());
+    }
+
+    @Test
+    void printConfig把按路径覆盖也摊开并且能读回来() throws Exception {
+        Config config = config("""
+                rules:
+                  LLM007: error
+                overrides:
+                  - files: "src/generated/**"
+                    rules:
+                      LLM010: off
+                """);
+        String printed = config.effectiveYaml(Rules.all(), config.exclude(), "error", "info");
+
+        assertTrue(printed.contains("overrides:"), printed);
+        assertTrue(printed.contains("files: \"src/generated/**\""), printed);
+
+        Config reparsed = config(printed);
+        assertEquals(1, reparsed.overrides().size());
+        assertEquals(RuleLevel.OFF,
+                reparsed.levelFor("LLM010", "src/generated/A.java").orElseThrow());
+    }
 }

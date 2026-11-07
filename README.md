@@ -97,6 +97,11 @@ rules:
 exclude:
   - "**/generated/**"   # 代码生成器的产物，改了也会被覆盖
 
+overrides:              # 照扫，但生成代码里硬编码的 key 不算问题
+  - files: "src/generated/**"
+    rules:
+      LLM010: off
+
 fail-on: error
 ```
 
@@ -112,6 +117,9 @@ java -jar llm-lint.jar src/main/java
   抄下来的旧值钉死。
 - **优先级**：命令行 > 配置文件 > 默认值。CI 里临时想放宽，`--fail-on never` 仍然说了算；
   `--exclude` 和配置里的 `exclude` 取**并集**。
+- **按路径改级别**：`exclude` 是整段不看；`overrides` 是照扫、只改那段路径下的级别
+  （`off` 丢掉这条结果）。同一规则多段命中时后写的盖先写的，写法见
+  [docs/config.md](docs/config.md#overrides)。
 - **写错了就说清楚**：未知的键、未知的规则、未知的级别都退出码 `2`，带 `文件:行号`，
   拼错的编号还会猜一下（`LLM07` → `是不是 LLM007？`）。不猜、不跳过——静默忽略一个拼错的
   规则名，比直接失败难查得多。
@@ -480,7 +488,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.26.0 && git push origin v0.26.0
+git tag v0.27.0 && git push origin v0.27.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

@@ -10,10 +10,8 @@ import io.github.pgy763.llmlint.lang.Lang;
 import io.github.pgy763.llmlint.lang.Messages;
 
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.PathMatcher;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -193,39 +191,11 @@ public final class LintEngine {
      */
     public boolean excluded(Path path) {
         String p = path.toString().replace('\\', '/');
-        List<String> candidates = candidates(p, path.getFileName());
-        for (String raw : excludePatterns) {
-            String pattern = raw.trim();
-            if (pattern.isEmpty()) {
-                continue;
-            }
-            if (pattern.contains("*") || pattern.contains("?")) {
-                PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
-                if (matcher.matches(path)) {
-                    return true;
-                }
-                for (String candidate : candidates) {
-                    if (matcher.matches(Path.of(candidate))) {
-                        return true;
-                    }
-                }
-            } else if (p.toLowerCase(Locale.ROOT).contains(pattern.toLowerCase(Locale.ROOT))) {
+        for (String pattern : excludePatterns) {
+            if (Globs.matches(pattern, p)) {
                 return true;
             }
         }
         return false;
-    }
-
-    /** 完整路径、文件名，以及每一段 / 之后的后缀（`src/generated/A.java` → `generated/A.java` …）。 */
-    private static List<String> candidates(String normalized, Path fileName) {
-        List<String> out = new ArrayList<>();
-        out.add(normalized);
-        if (fileName != null) {
-            out.add(fileName.toString());
-        }
-        for (int i = normalized.indexOf('/'); i >= 0; i = normalized.indexOf('/', i + 1)) {
-            out.add(normalized.substring(i + 1));
-        }
-        return out;
     }
 }
