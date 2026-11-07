@@ -30,6 +30,11 @@ public final class Rule016ToolReturnsReactive extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`@Tool` 方法返回 `Mono` / `Flux`", "@Tool method returning Mono / Flux");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

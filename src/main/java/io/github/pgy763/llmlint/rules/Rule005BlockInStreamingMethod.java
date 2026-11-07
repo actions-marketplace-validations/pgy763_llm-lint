@@ -34,6 +34,11 @@ public final class Rule005BlockInStreamingMethod extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("流式方法里 `block()`，把事件循环占住", "block() inside a streaming handler, taking the event loop hostage");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

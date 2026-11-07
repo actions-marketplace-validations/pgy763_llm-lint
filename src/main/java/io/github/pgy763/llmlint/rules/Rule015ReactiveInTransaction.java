@@ -33,6 +33,11 @@ public final class Rule015ReactiveInTransaction extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("事务方法返回 `Flux` / `Mono`", "transactional method returning Flux / Mono");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

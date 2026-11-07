@@ -25,6 +25,11 @@ public interface Rule {
         return "both";
     }
 
+    /** 索引表里那一列「拦的是什么」：比 title 长一点，一句话。不写就用 title。 */
+    default String summary() {
+        return title();
+    }
+
     /** 一两句话说清「为什么这是问题」，--explain 会用它。 */
     default String why() {
         return "";

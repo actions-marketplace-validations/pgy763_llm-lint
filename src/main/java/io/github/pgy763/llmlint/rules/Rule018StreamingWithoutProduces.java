@@ -34,6 +34,11 @@ public final class Rule018StreamingWithoutProduces extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("流式接口没声明 `produces`", "streaming endpoint without produces");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

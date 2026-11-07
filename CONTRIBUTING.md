@@ -45,10 +45,13 @@ public final class Rule021TransactionalSseEmitter extends AbstractRule {
     public String title() { return "事务方法返回长连接"; }
 
     @Override
+    public String summary() { return "一句话说清拦什么，比 title 长一点，索引表里就是这一列"; }
+
+    @Override
     public Severity severity() { return Severity.WARNING; }
 
     @Override
-    public String framework() { return "通用"; }
+    public String framework() { return "both"; } // spring-ai / langchain4j / both
 
     @Override
     public String why() { return "一句话说清为什么这是个坑"; }
@@ -89,21 +92,15 @@ public final class Rule021TransactionalSseEmitter extends AbstractRule {
 判断范围：…（什么算、什么不算）
 ```
 
-再在索引 `docs/rules.md` 里补两条：顶部表格加一行，正文加
-
-```markdown
-<a id="llm021"></a>
-### [LLM021 事务方法返回长连接](https://pgy763.github.io/llm-lint/rules/llm021.html)
-
-error · 通用 —— 一句话说清拦什么
-```
+索引页 `docs/rules.md` 不用手改：再跑一次 `llm-lint --docs docs/rules`，顶部表格、每条的锚点和链接会一起换掉
+（`<!-- generated:rules-index -->` 和 `<!-- /generated:rules-index -->` 之间的部分就是它写的）。
 
 **5. 跟着数字走的地方**（漏了就会有测试红）：
 
 | 位置 | 改什么 |
 | --- | --- |
 | `README.md` / `README.en.md` | 规则表加一行，「二十二条」的说法 |
-| `docs/rules.md` 顶部 | 表格加一行，索引里加一条链接 |
+| `docs/rules.md` | 跑 `--docs` 自动更新表格和索引，别手改 |
 | `docs/rules/llm021.md` | 跑 `llm-lint --docs docs/rules` 生成，只手写「为什么会踩」这一段 |
 | `docs/changelog.md` | 新版本一行 |
 | `action.yml` 描述 | 里面的「22 rules」 |
@@ -158,4 +155,4 @@ java -jar target/llm-lint.jar samples/good                # 应该一条都没�
 
 ## Contributing (English)
 
-The short version: JDK 17+, `mvn -B -ntp verify` (add `-DforkCount=0` on Windows sandboxes), one rule = one class in `rules/` + one failing sample in `samples/bad` + one clean sample in `samples/good` + a page under `docs/rules/` (generate the shell with `--docs`, then fill the hand-written part) plus an index row in `docs/rules.md`. Rules read the Java syntax tree only — no type resolution, no network, no classpath; when in doubt, don't report. Open an issue before starting anything larger than a rule, and keep pull requests single-purpose. See [ROADMAP](ROADMAP.md) for rule ideas with detection sketches already written down.
+The short version: JDK 17+, `mvn -B -ntp verify` (add `-DforkCount=0` on Windows sandboxes), one rule = one class in `rules/` + one failing sample in `samples/bad` + one clean sample in `samples/good` + a page under `docs/rules/` (generate the shell with `--docs`, then fill the hand-written part) plus the index page (`--docs` refreshes its table and links too). Rules read the Java syntax tree only — no type resolution, no network, no classpath; when in doubt, don't report. Open an issue before starting anything larger than a rule, and keep pull requests single-purpose. See [ROADMAP](ROADMAP.md) for rule ideas with detection sketches already written down.

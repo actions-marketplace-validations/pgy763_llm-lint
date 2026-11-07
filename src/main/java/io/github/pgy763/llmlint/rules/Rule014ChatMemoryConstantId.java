@@ -33,6 +33,11 @@ public final class Rule014ChatMemoryConstantId extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`ChatMemoryProvider` 用了写死的 id", "ChatMemoryProvider with a hard-coded id");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

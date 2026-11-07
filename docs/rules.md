@@ -15,10 +15,11 @@ API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型
 
 这张表也能自己生成：`llm-lint --list-rules --format markdown`（级别、框架跟着配置走，测试会校验它和代码一致）。
 
-每一条的详情在单独一页（下面有索引）。页面顶上那张表由 `llm-lint --docs docs/rules` 生成——级别、框架、有没有补丁、文档链接都从代码来，重跑只换这一段；下面「为什么会踩」那部分是手写的，不会被覆盖。所以在终端里看和站上看是同一份事实，不会出现「文档说 warning、工具有一天改成 error」的错位。
+每一条的详情在单独一页（下面有索引）。页面顶上的表、以及这一页的表格和索引，都由 `llm-lint --docs docs/rules` 生成——级别、框架、有没有补丁、文档链接都从代码来，重跑只换这一段；下面「为什么会踩」那部分是手写的，不会被覆盖。所以在终端里看和站上看是同一份事实，不会出现「文档说 warning、工具有一天改成 error」的错位。
 
 只想在本地看：`llm-lint --explain LLM007 --format markdown`，整本用 `--explain all --format markdown`。
 
+<!-- generated:rules-index -->
 | 编号 | 级别 | 框架 | 拦的是什么 |
 | --- | --- | --- | --- |
 | [LLM001](#llm001) | error | 通用 | `@Transactional` 里调模型，占着数据库连接等几秒 |
@@ -47,47 +48,47 @@ API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型
 ---
 
 <a id="llm001"></a>
-### [LLM001 `@Transactional` 里调模型](https://pgy763.github.io/llm-lint/rules/llm001.html)
+### [LLM001 @Transactional 里调模型](https://pgy763.github.io/llm-lint/rules/llm001.html)
 
 error · 通用 —— `@Transactional` 里调模型，占着数据库连接等几秒
 
 <a id="llm002"></a>
-### [LLM002 单例里共用一份 `ChatMemory`](https://pgy763.github.io/llm-lint/rules/llm002.html)
+### [LLM002 单例里共用一份 ChatMemory](https://pgy763.github.io/llm-lint/rules/llm002.html)
 
 error · 通用 —— 单例 Bean 里一份 `ChatMemory`，所有人共用
 
 <a id="llm003"></a>
-### [LLM003 让容器注入 `ChatClient`](https://pgy763.github.io/llm-lint/rules/llm003.html)
+### [LLM003 让容器注入 ChatClient](https://pgy763.github.io/llm-lint/rules/llm003.html)
 
 error · Spring AI —— 让容器注入 `ChatClient`（它没有这个 Bean）
 
 <a id="llm004"></a>
-### [LLM004 `new SseEmitter()` 没设超时](https://pgy763.github.io/llm-lint/rules/llm004.html)
+### [LLM004 SseEmitter 没设超时](https://pgy763.github.io/llm-lint/rules/llm004.html)
 
 error · 通用 —— `new SseEmitter()` 用容器默认超时，30 秒断流
 
 <a id="llm005"></a>
-### [LLM005 流式方法里 `block()` / `collectList()`](https://pgy763.github.io/llm-lint/rules/llm005.html)
+### [LLM005 流式方法里 block/collect](https://pgy763.github.io/llm-lint/rules/llm005.html)
 
 warning · 通用 —— 流式方法里 `block()`，把事件循环占住
 
 <a id="llm006"></a>
-### [LLM006 `produces` 少了 charset](https://pgy763.github.io/llm-lint/rules/llm006.html)
+### [LLM006 produces 少了 charset](https://pgy763.github.io/llm-lint/rules/llm006.html)
 
 warning · 通用 —— `produces = "text/event-stream"` 少了 charset
 
 <a id="llm007"></a>
-### [LLM007 `maxTokens` 太小](https://pgy763.github.io/llm-lint/rules/llm007.html)
+### [LLM007 maxTokens 太小](https://pgy763.github.io/llm-lint/rules/llm007.html)
 
 warning · 通用 —— `maxTokens` 太小，工具参数被截断
 
 <a id="llm008"></a>
-### [LLM008 空 catch 吞掉 `IOException`](https://pgy763.github.io/llm-lint/rules/llm008.html)
+### [LLM008 空的 catch 吞掉 IOException](https://pgy763.github.io/llm-lint/rules/llm008.html)
 
 warning · 通用 —— 空 catch 吞掉写 SSE 时的 `IOException`
 
 <a id="llm009"></a>
-### [LLM009 `@Bean` 建的 HTTP 客户端没配超时](https://pgy763.github.io/llm-lint/rules/llm009.html)
+### [LLM009 HTTP 客户端没配超时](https://pgy763.github.io/llm-lint/rules/llm009.html)
 
 warning · 通用 —— `@Bean` 建的 HTTP 客户端没配超时
 
@@ -97,32 +98,32 @@ warning · 通用 —— `@Bean` 建的 HTTP 客户端没配超时
 error · 通用 —— 硬编码的 `sk-…` / `AIza…` 密钥
 
 <a id="llm011"></a>
-### [LLM011 每个请求都新建 `ChatClient` / `ChatModel`](https://pgy763.github.io/llm-lint/rules/llm011.html)
+### [LLM011 每次请求都新建 ChatClient/ChatModel](https://pgy763.github.io/llm-lint/rules/llm011.html)
 
 error · 通用 —— 每个请求现建 `ChatClient` / `ChatModel`
 
 <a id="llm012"></a>
-### [LLM012 每个请求都新建 `AiServices`](https://pgy763.github.io/llm-lint/rules/llm012.html)
+### [LLM012 每次请求都新建 AiServices](https://pgy763.github.io/llm-lint/rules/llm012.html)
 
 error · LangChain4j —— 每个请求现建 `AiServices`
 
 <a id="llm013"></a>
-### [LLM013 循环里逐个调模型或向量库](https://pgy763.github.io/llm-lint/rules/llm013.html)
+### [LLM013 循环里逐个调模型/向量库](https://pgy763.github.io/llm-lint/rules/llm013.html)
 
 warning · 通用 —— 循环里逐个调模型或向量库
 
 <a id="llm014"></a>
-### [LLM014 `ChatMemoryProvider` 用了写死的 id](https://pgy763.github.io/llm-lint/rules/llm014.html)
+### [LLM014 ChatMemoryProvider 用了写死的 id](https://pgy763.github.io/llm-lint/rules/llm014.html)
 
 error · LangChain4j —— `ChatMemoryProvider` 用了写死的 id
 
 <a id="llm015"></a>
-### [LLM015 事务方法返回 `Flux` / `Mono`](https://pgy763.github.io/llm-lint/rules/llm015.html)
+### [LLM015 事务方法返回 Flux/Mono](https://pgy763.github.io/llm-lint/rules/llm015.html)
 
 warning · 通用 —— 事务方法返回 `Flux` / `Mono`
 
 <a id="llm016"></a>
-### [LLM016 `@Tool` 方法返回 `Mono` / `Flux`](https://pgy763.github.io/llm-lint/rules/llm016.html)
+### [LLM016 工具方法返回响应式类型](https://pgy763.github.io/llm-lint/rules/llm016.html)
 
 error · 通用 —— `@Tool` 方法返回 `Mono` / `Flux`
 
@@ -132,12 +133,12 @@ error · 通用 —— `@Tool` 方法返回 `Mono` / `Flux`
 error · 通用 —— 事务里查 / 写向量库
 
 <a id="llm018"></a>
-### [LLM018 流式接口没声明 `produces`](https://pgy763.github.io/llm-lint/rules/llm018.html)
+### [LLM018 流式接口没声明 produces](https://pgy763.github.io/llm-lint/rules/llm018.html)
 
 warning · 通用 —— 流式接口没声明 `produces`
 
 <a id="llm019"></a>
-### [LLM019 `@Tool` 方法里做阻塞调用](https://pgy763.github.io/llm-lint/rules/llm019.html)
+### [LLM019 工具方法里做阻塞调用](https://pgy763.github.io/llm-lint/rules/llm019.html)
 
 warning · 通用 —— `@Tool` 方法里查库 / 调同步接口 / `Thread.sleep`
 
@@ -155,6 +156,8 @@ error · 通用 —— `@Transactional` 方法返回 `SseEmitter` / `ResponseBod
 ### [LLM022 定时任务里直接调模型](https://pgy763.github.io/llm-lint/rules/llm022.html)
 
 warning · 通用 —— `@Scheduled` / `@Async` 方法里直接调模型
+
+<!-- /generated:rules-index -->
 
 ## 抑制
 

@@ -35,6 +35,11 @@ public final class Rule003ChatClientInjection extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("让容器注入 `ChatClient`（它没有这个 Bean）", "Asking the container for a ChatClient bean (there is none)");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

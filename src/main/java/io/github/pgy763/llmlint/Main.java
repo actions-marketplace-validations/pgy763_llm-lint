@@ -278,7 +278,7 @@ public final class Main implements Callable<Integer> {
                         : "off";
                 if (table) {
                     out.printf("| [%s](#%s) | %s | %s | %s |%n",
-                            r.id(), r.id().toLowerCase(Locale.ROOT), level, framework(r), r.title());
+                            r.id(), r.id().toLowerCase(Locale.ROOT), level, framework(r), r.summary());
                 } else {
                     out.printf("%-7s %-8s %-13s %s%n", r.id(), level, framework(r), r.title());
                 }
@@ -648,6 +648,7 @@ public final class Main implements Callable<Integer> {
                 }
                 Files.writeString(file, text, StandardCharsets.UTF_8);
             }
+            writeIndex(out);
             out.println(Messages.f("写好 %d 个规则页面：%s（新建 %d 个，更新 %d 个）",
                     "Wrote %d rule pages under %s (%d new, %d updated)", Rules.all().size(),
                     ConfigLoader.display(docs, Path.of("").toAbsolutePath()), fresh, changed));
@@ -660,6 +661,27 @@ public final class Main implements Callable<Integer> {
                     e.getMessage()));
             return 2;
         }
+    }
+
+    private void writeIndex(PrintWriter out) throws IOException {
+        Path parent = docs.getParent();
+        Path index = parent == null ? Path.of("rules.md") : parent.resolve("rules.md");
+        if (!Files.isRegularFile(index)) {
+            return;
+        }
+        String old = Files.readString(index, StandardCharsets.UTF_8);
+        String updated = RulePages.mergeIndex(old, Rules.all());
+        if (updated == null) {
+            out.println(Messages.f("索引页 %s 里没找到 %s 标记，跳过（图表行得手改）",
+                    "No %2$s markers in %1$s, skipped", index, RulePages.INDEX_START));
+            return;
+        }
+        if (updated.equals(old)) {
+            return;
+        }
+        Files.writeString(index, updated, StandardCharsets.UTF_8);
+        out.println(Messages.f("索引页也换了一段：%s", "Index page refreshed: %s",
+                ConfigLoader.display(index, Path.of("").toAbsolutePath())));
     }
 
     private Integer writeInitCi(PrintWriter out, PrintWriter err, Path dir) {

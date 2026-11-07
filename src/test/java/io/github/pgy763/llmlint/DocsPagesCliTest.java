@@ -82,4 +82,42 @@ class DocsPagesCliTest {
         assertEquals(0, run.code());
         assertTrue(run.out().contains("--docs"), run.out());
     }
+
+    @Test
+    void 索引页的表格也跟着换(@TempDir Path dir) throws Exception {
+        Path pages = dir.resolve("docs/rules");
+        Files.createDirectories(pages);
+        Path index = dir.resolve("docs/rules.md");
+        String original = "---\ntitle: 测试\n---\n\n<!-- generated:rules-index -->\n"
+                + "| 旧表 |\n<!-- /generated:rules-index -->\n\n## 手写部分\n\n别删我。\n";
+        Files.writeString(index, original, StandardCharsets.UTF_8);
+
+        Run run = run("--docs", pages.toString());
+        assertEquals(0, run.code(), run.err());
+        assertTrue(run.out().contains("索引页也换了一段"), run.out());
+
+        String text = Files.readString(index, StandardCharsets.UTF_8);
+        assertTrue(text.startsWith("---\ntitle: 测试\n---"), "front matter 不该被动");
+        assertTrue(text.contains("| 编号 | 级别 | 框架 | 拦的是什么 |"), text);
+        assertTrue(text.contains("| [LLM001](#llm001) | error |"), text);
+        assertTrue(!text.contains("| 旧表 |"), "旧的表格行应该被换掉");
+        assertTrue(text.contains("别删我。"), "标记之后的手写内容要留着");
+
+        String once = Files.readString(index, StandardCharsets.UTF_8);
+        assertEquals(0, run("--docs", pages.toString()).code());
+        assertEquals(once, Files.readString(index, StandardCharsets.UTF_8), "重跑不该再改索引页");
+    }
+
+    @Test
+    void 索引页没有标记就跳过不动(@TempDir Path dir) throws Exception {
+        Path pages = dir.resolve("docs/rules");
+        Files.createDirectories(pages);
+        Path index = dir.resolve("docs/rules.md");
+        Files.writeString(index, "手写的索引，没有标记。\n", StandardCharsets.UTF_8);
+
+        Run run = run("--docs", pages.toString());
+        assertEquals(0, run.code(), run.err());
+        assertTrue(run.out().contains("没找到"), run.out());
+        assertEquals("手写的索引，没有标记。\n", Files.readString(index, StandardCharsets.UTF_8));
+    }
 }

@@ -34,6 +34,11 @@ public final class Rule012AiServicesPerRequest extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("每个请求现建 `AiServices`", "new AiServices per request");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

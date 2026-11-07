@@ -256,4 +256,16 @@ class DocsTest {
             assertEquals(framework, cells[1], rule.id() + " 在表里的框架和代码不一样");
         }
     }
+
+    @Test
+    void 索引页的生成段和代码完全一致() throws IOException {
+        // 这一段是 llm-lint --docs docs/rules 写的：表格、锚点、链接都必须等于此刻代码生成的结果，
+        // 不然站上说的和工具说的就是两回事。改了规则就重跑一次，别手改。
+        String doc = read(RULES_DOC);
+        assertTrue(doc.contains(RulePages.INDEX_START), "索引页缺开始标记 " + RulePages.INDEX_START);
+        assertTrue(doc.contains(RulePages.INDEX_END), "索引页缺结束标记 " + RulePages.INDEX_END);
+        String regenerated = RulePages.mergeIndex(doc, Rules.all());
+        assertTrue(regenerated != null, "索引页的标记不成对");
+        assertEquals(doc, regenerated, "索引页的生成段过期了：跑一次 llm-lint --docs docs/rules");
+    }
 }

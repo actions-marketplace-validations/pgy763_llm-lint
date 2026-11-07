@@ -4,6 +4,7 @@ import io.github.pgy763.llmlint.Rule;
 import io.github.pgy763.llmlint.lang.Lang;
 import io.github.pgy763.llmlint.lang.Messages;
 
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -86,6 +87,51 @@ public final class RulePages {
         }
         String tail = existing.substring(at + marker.length());
         return head + (tail.isBlank() ? "\n" : tail);
+    }
+
+    /** 索引页 {@code docs/rules.md} 里生成段的起止标记。 */
+    public static final String INDEX_START = "<!-- generated:rules-index -->";
+
+    public static final String INDEX_END = "<!-- /generated:rules-index -->";
+
+    /** 站上这一条规则的页面地址。 */
+    public static String pageUrl(String id) {
+        return "https://pgy763.github.io/llm-lint/rules/" + id.toLowerCase(Locale.ROOT) + ".html";
+    }
+
+    /** 索引页里的生成段：总表 + 每条的锚点和链接。 */
+    public static String index(List<Rule> rules) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("| ").append(Messages.t("编号", "Rule")).append(" | ")
+                .append(Messages.t("级别", "Level")).append(" | ")
+                .append(Messages.t("框架", "Framework")).append(" | ")
+                .append(Messages.t("拦的是什么", "What it catches")).append(" |\n");
+        sb.append("| --- | --- | --- | --- |\n");
+        for (Rule rule : rules) {
+            sb.append("| [").append(rule.id()).append("](#").append(rule.id().toLowerCase(Locale.ROOT))
+                    .append(") | ").append(rule.severity().label()).append(" | ")
+                    .append(framework(rule)).append(" | ").append(rule.summary()).append(" |\n");
+        }
+        sb.append("\n---\n\n");
+        for (Rule rule : rules) {
+            sb.append("<a id=\"").append(rule.id().toLowerCase(Locale.ROOT)).append("\"></a>\n");
+            sb.append("### [").append(rule.id()).append(' ').append(rule.title()).append("](")
+                    .append(pageUrl(rule.id())).append(")\n\n");
+            sb.append(rule.severity().label()).append(" · ").append(framework(rule)).append(" —— ")
+                    .append(rule.summary()).append("\n\n");
+        }
+        return sb.toString().stripTrailing() + "\n\n";
+    }
+
+    /** 把索引页里两个标记之间的内容换成新生成的；没有标记就返回 null（不碰手写的页面结构）。 */
+    public static String mergeIndex(String existing, List<Rule> rules) {
+        int start = existing.indexOf(INDEX_START);
+        int end = existing.indexOf(INDEX_END);
+        if (start < 0 || end < start) {
+            return null;
+        }
+        return existing.substring(0, start + INDEX_START.length()) + "\n" + index(rules)
+                + existing.substring(end);
     }
 
     private static void row(StringBuilder sb, String key, String value) {

@@ -36,6 +36,11 @@ public final class Rule013ModelCallInLoop extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("循环里逐个调模型或向量库", "model or vector store call inside a loop");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }
