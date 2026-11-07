@@ -38,6 +38,9 @@ class DocsTest {
     private static final Path SCHEMA = Path.of("docs/llm-lint.schema.json");
     private static final Path DOCKERFILE = Path.of("Dockerfile");
     private static final Path DOCKER_WORKFLOW = Path.of(".github/workflows/docker.yml");
+    private static final Path CONFIG_DOC = Path.of("docs/config.md");
+    private static final List<String> TOP_LEVEL_KEYS =
+            List.of("version", "rules", "exclude", "overrides", "fail-on", "min-severity", "baseline");
 
     private static String read(Path file) throws IOException {
         return Files.readString(file, StandardCharsets.UTF_8);
@@ -132,10 +135,24 @@ class DocsTest {
     void schema列了全部顶层键() throws IOException {
         String schema = read(SCHEMA);
 
-        for (String key : List.of("version", "rules", "exclude", "fail-on", "min-severity", "baseline")) {
+        for (String key : TOP_LEVEL_KEYS) {
             assertTrue(schema.contains("\"" + key + "\""), "schema 里少了 " + key);
         }
         assertTrue(schema.contains("\"additionalProperties\": false"), "顶层要禁止未知键，和解析器行为一致");
+    }
+
+    @Test
+    void 配置文档的表和schema对得上() throws IOException {
+        String doc = read(CONFIG_DOC);
+
+        Matcher m = Pattern.compile("(?m)^\\| `([a-z][a-z-]*)` \\| (?:是|否) \\|").matcher(doc);
+        Set<String> documented = new TreeSet<>();
+        while (m.find()) {
+            documented.add(m.group(1));
+        }
+
+        assertEquals(new TreeSet<>(TOP_LEVEL_KEYS), documented,
+                "docs/config.md 的顶层键表和 schema 对不上：加了键就得同时改三处（解析器、schema、文档）");
     }
 
     @Test

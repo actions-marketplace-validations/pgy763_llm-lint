@@ -54,7 +54,7 @@ fail-on: error
 
 ## 配置长什么样
 
-顶层只认六个键。多写一个键会直接报错，而不是被静默忽略——配置文件里打错的键，比没有配置更危险。
+顶层只认七个键。多写一个键会直接报错，而不是被静默忽略——配置文件里打错的键，比没有配置更危险。
 
 | 键 | 必填 | 值 | 说明 |
 | --- | --- | --- | --- |
@@ -217,7 +217,7 @@ $ java -jar llm-lint.jar --config .llm-lint.yml src/main/java
 
 ```
 .llm-lint.yml:2: 不认识的键「rulez」
-  提示：能写的只有 version / rules / exclude / fail-on / min-severity
+  提示：能写的只有 version / rules / exclude / overrides / fail-on / min-severity
 ```
 
 ```
@@ -233,7 +233,7 @@ $ java -jar llm-lint.jar --config .llm-lint.yml src/main/java
 java -jar llm-lint.jar --init
 ```
 
-在当前目录写 `.llm-lint.yml`：二十二条规则各一行注释（带默认级别），外加 exclude、fail-on、
+在当前目录写 `.llm-lint.yml`：二十二条规则各一行注释（带默认级别），外加 exclude、overrides、fail-on、
 min-severity 的注释示例。**全部是注释，等于没生效**，你按需去掉 `#`。文件已存在时**不覆盖**，
 退出码 `2`——`--init` 是给新项目用的，不是用来重置的。
 
