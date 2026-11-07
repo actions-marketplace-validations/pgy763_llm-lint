@@ -92,6 +92,8 @@ public final class Rule021TransactionalSseEmitter extends AbstractRule {
 判断范围：…（什么算、什么不算）
 ```
 
+英文页同理：跑 `llm-lint --docs-en docs/en/rules`，再把 `## What it looks like` 与 `## How to fix` 两段换成真内容。
+
 索引页 `docs/rules.md` 不用手改：再跑一次 `llm-lint --docs docs/rules`，顶部表格、每条的锚点和链接会一起换掉
 （`<!-- generated:rules-index -->` 和 `<!-- /generated:rules-index -->` 之间的部分就是它写的）。
 
@@ -102,6 +104,7 @@ public final class Rule021TransactionalSseEmitter extends AbstractRule {
 | `README.md` / `README.en.md` | 规则表加一行，「二十二条」的说法 |
 | `docs/rules.md` | 跑 `--docs` 自动更新表格和索引，别手改 |
 | `docs/rules/llm021.md` | 跑 `llm-lint --docs docs/rules` 生成，只手写「为什么会踩」这一段 |
+| `docs/en/rules/llm021.md` | 跑 `llm-lint --docs-en docs/en/rules` 生成，只手写 `## What it looks like` 与 `## How to fix` |
 | `docs/changelog.md` | 新版本一行 |
 | `action.yml` 描述 | 里面的「22 rules」 |
 | `llms.txt` | 规则数量 |

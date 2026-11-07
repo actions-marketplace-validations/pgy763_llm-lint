@@ -123,6 +123,10 @@ public final class Main implements Callable<Integer> {
             description = "Regenerate the per-rule doc pages under this directory; the hand-written part is kept")
     private Path docs;
 
+    @Option(names = "--docs-en", paramLabel = "<dir>",
+            description = "Same as --docs, but writes the English pages (permalink under /en/rules/)")
+    private Path docsEn;
+
     @Option(names = "--baseline", paramLabel = "<file>",
             description = "Only report findings that are not in this baseline; known issues stay in the file and don't block CI (see docs/baseline.md)")
     private Path baselineFile;
@@ -200,7 +204,10 @@ public final class Main implements Callable<Integer> {
             return writeInitHook(out, err, initHook);
         }
         if (docs != null) {
-            return writeDocs(out, err);
+            return writeDocs(out, err, docs, "/rules/", Lang.ZH);
+        }
+        if (docsEn != null) {
+            return writeDocs(out, err, docsEn, "/en/rules/", Lang.EN);
         }
 
         if (write && !fix) {
@@ -631,16 +638,18 @@ public final class Main implements Callable<Integer> {
     }
 
     /** 每条规则一页；已经有的手写内容保留，只换生成段。 */
-    private Integer writeDocs(PrintWriter out, PrintWriter err) {
+    private Integer writeDocs(PrintWriter out, PrintWriter err, Path dir, String base, Lang lang) {
+        Lang keep = Messages.lang();
+        Messages.use(lang);
         try {
-            Files.createDirectories(docs);
+            Files.createDirectories(dir);
             int fresh = 0;
             int changed = 0;
             for (Rule rule : Rules.all()) {
-                Path file = docs.resolve(RulePages.fileName(rule));
+                Path file = dir.resolve(RulePages.fileName(rule));
                 String existing = Files.isRegularFile(file)
                         ? Files.readString(file, StandardCharsets.UTF_8) : null;
-                String text = RulePages.merge(rule, existing);
+                String text = RulePages.merge(rule, existing, base);
                 if (existing == null) {
                     fresh++;
                 } else if (!existing.equals(text)) {
@@ -648,10 +657,10 @@ public final class Main implements Callable<Integer> {
                 }
                 Files.writeString(file, text, StandardCharsets.UTF_8);
             }
-            writeIndex(out);
+            writeIndex(out, dir);
             out.println(Messages.f("写好 %d 个规则页面：%s（新建 %d 个，更新 %d 个）",
                     "Wrote %d rule pages under %s (%d new, %d updated)", Rules.all().size(),
-                    ConfigLoader.display(docs, Path.of("").toAbsolutePath()), fresh, changed));
+                    ConfigLoader.display(dir, Path.of("").toAbsolutePath()), fresh, changed));
             out.println(Messages.t("生成段以 `<!-- /generated:llmNNN -->` 结尾，往下是手写部分，不会被覆盖。",
                     "Everything below `<!-- /generated:llmNNN -->` is hand-written and left alone."));
             out.flush();
@@ -660,11 +669,13 @@ public final class Main implements Callable<Integer> {
             err.println(Messages.f("llm-lint: 规则页面写不进去：%s", "llm-lint: cannot write rule pages: %s",
                     e.getMessage()));
             return 2;
+        } finally {
+            Messages.use(keep);
         }
     }
 
-    private void writeIndex(PrintWriter out) throws IOException {
-        Path parent = docs.getParent();
+    private void writeIndex(PrintWriter out, Path dir) throws IOException {
+        Path parent = dir.getParent();
         Path index = parent == null ? Path.of("rules.md") : parent.resolve("rules.md");
         if (!Files.isRegularFile(index)) {
             return;

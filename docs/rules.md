@@ -15,7 +15,7 @@ API key、不需要项目的 classpath——它只读 `.java` 源码，靠类型
 
 这张表也能自己生成：`llm-lint --list-rules --format markdown`（级别、框架跟着配置走，测试会校验它和代码一致）。
 
-每一条的详情在单独一页（下面有索引）。页面顶上的表、以及这一页的表格和索引，都由 `llm-lint --docs docs/rules` 生成——级别、框架、有没有补丁、文档链接都从代码来，重跑只换这一段；下面「为什么会踩」那部分是手写的，不会被覆盖。所以在终端里看和站上看是同一份事实，不会出现「文档说 warning、工具有一天改成 error」的错位。
+每一条的详情在单独一页（下面有索引）。页面顶上的表、以及这一页的表格和索引，都由 `llm-lint --docs docs/rules` 生成——级别、框架、有没有补丁、文档链接都从代码来，重跑只换这一段；下面「为什么会踩」那部分是手写的，不会被覆盖。所以在终端里看和站上看是同一份事实，不会出现「文档说 warning、工具有一天改成 error」的错位。英文版同样每条一页：[English pages](https://pgy763.github.io/llm-lint/en/rules.html)，由 `llm-lint --docs-en docs/en/rules` 生成。
 
 只想在本地看：`llm-lint --explain LLM007 --format markdown`，整本用 `--explain all --format markdown`。
 

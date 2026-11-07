@@ -3,6 +3,8 @@ package io.github.pgy763.llmlint;
 import io.github.pgy763.llmlint.config.Config;
 import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
+import io.github.pgy763.llmlint.lang.Lang;
+import io.github.pgy763.llmlint.lang.Messages;
 import io.github.pgy763.llmlint.report.RulePages;
 import org.junit.jupiter.api.Test;
 
@@ -267,5 +269,33 @@ class DocsTest {
         String regenerated = RulePages.mergeIndex(doc, Rules.all());
         assertTrue(regenerated != null, "索引页的标记不成对");
         assertEquals(doc, regenerated, "索引页的生成段过期了：跑一次 llm-lint --docs docs/rules");
+    }
+
+    @Test
+    void 英文规则页和英文索引也跟代码对得上() throws IOException {
+        Lang keep = Messages.lang();
+        Messages.use(Lang.EN);
+        try {
+            for (Rule rule : Rules.all()) {
+                Path page = Path.of("docs/en/rules").resolve(RulePages.fileName(rule));
+                assertTrue(Files.isRegularFile(page), "少了 " + page);
+                String text = read(page);
+                String lower = rule.id().toLowerCase(Locale.ROOT);
+                assertTrue(text.contains("permalink: /en/rules/" + lower + ".html"),
+                        page + " 的永久链接不是 /en/rules/");
+                assertTrue(text.startsWith(RulePages.head(rule, "/en/rules/")),
+                        page + " 的生成段过期了：跑一次 llm-lint --docs-en docs/en/rules");
+                assertFalse(text.contains("## Why it bites"), page + " 还留着英文占位符");
+                assertTrue(text.contains("## How to fix"), page + " 少了手写的改法");
+            }
+            String index = read(Path.of("docs/en/rules.md"));
+            assertTrue(index.contains("| Rule | Level | Framework | What it catches |"), "英文索引缺生成段；跑一次 llm-lint --docs-en docs/en/rules");
+            for (Rule rule : Rules.all()) {
+                assertTrue(index.contains("/en/rules/" + rule.id().toLowerCase(Locale.ROOT) + ".html"),
+                        "英文索引里没有 " + rule.id() + " 的页面链接");
+            }
+        } finally {
+            Messages.use(keep);
+        }
     }
 }

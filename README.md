@@ -244,7 +244,7 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
 | LLM021 | error | 通用 | `@Transactional` 方法返回 `SseEmitter` / `ResponseBodyEmitter` | 事务活到整个流结束，连接池先耗尽 |
 | LLM022 | warning | 通用 | `@Scheduled` / `@Async` 里直接调模型 | 没有请求就没有会话，记忆要么串台要么每次新建 |
 
-每条的反例、改法、判断范围：**[docs/rules.md](docs/rules.md)** 是索引，每条还有单独一页（例如 [LLM007](https://pgy763.github.io/llm-lint/rules/llm007.html)），页面顶上的表、以及本页的表格都由 `llm-lint --docs docs/rules` 生成。
+每条的反例、改法、判断范围：**[docs/rules.md](docs/rules.md)** 是索引，每条还有单独一页（例如 [LLM007](https://pgy763.github.io/llm-lint/rules/llm007.html)），页面顶上的表、以及本页的表格都由 `llm-lint --docs docs/rules` 生成。英文版也是每条一页（[LLM007](https://pgy763.github.io/llm-lint/en/rules/llm007.html)），用 `llm-lint --docs-en docs/en/rules` 生成。
 `java -jar llm-lint.jar --list-rules` 随时能看这张表。
 
 ## 用法
@@ -257,7 +257,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
          [--files-from <file>] [--fix [--write]]
-         [--lang <zh|en>] [--explain LLM001|all] [--list-rules [--format markdown|json]] [--docs <dir>] <path...>
+         [--lang <zh|en>] [--explain LLM001|all] [--list-rules [--format markdown|json]] [--docs <dir>] [--docs-en <dir>] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
                   / junit（Jenkins / GitLab 认的报告）/ html（一份能双击打开的页面）
@@ -286,6 +286,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --lang          zh（默认）/ en；只换人看的文字，JSON 字段名不变
   --explain       一条规则的级别、框架、理由、抑制方式；all 列全部，配 --format markdown 直接出文档
   --list-rules    列出全部规则；--format markdown 出表格、--format json 出机器可读的目录
+  --docs-en       跟 --docs 一样，只是写英文页（永久链接在 /en/rules/ 下）
   --docs          重新生成 docs/rules 下每条规则一页，连索引页的表格一起换：生成段换新，手写的「为什么会踩」留着
 ```
 
@@ -479,7 +480,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.24.0 && git push origin v0.23.0
+git tag v0.25.0 && git push origin v0.25.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
