@@ -266,14 +266,39 @@ class DocsTest {
         for (Rule rule : Rules.all()) {
             String[] cells = rows.get(rule.id());
             assertNotNull(cells, "规则手册顶部的表里没有 " + rule.id());
-            String framework = switch (rule.framework()) {
-                case "spring-ai" -> "Spring AI";
-                case "langchain4j" -> "LangChain4j";
-                default -> "通用";
-            };
             assertEquals(rule.severity().label(), cells[0], rule.id() + " 在表里的级别和代码不一样");
-            assertEquals(framework, cells[1], rule.id() + " 在表里的框架和代码不一样");
+            assertEquals(frameworkZh(rule), cells[1], rule.id() + " 在表里的框架和代码不一样");
         }
+    }
+
+    @Test
+    void README里的规则表也跟代码对得上() throws IOException {
+        // README 是绝大多数人看到的第一张表，二十多行全靠手维护，最容易在加规则时漏改。
+        String zh = read(Path.of("README.md"));
+        String en = read(Path.of("README.en.md"));
+        for (Rule rule : Rules.all()) {
+            String level = rule.severity().label();
+            String zhRow = "| " + rule.id() + " | " + level + " | " + frameworkZh(rule) + " | ";
+            String enRow = "| " + rule.id() + " | " + level + " | " + frameworkEn(rule) + " | ";
+            assertTrue(zh.contains(zhRow), "README.md 的规则表跟代码对不上，少了这一行：" + zhRow);
+            assertTrue(en.contains(enRow), "README.en.md 的规则表跟代码对不上，少了这一行：" + enRow);
+        }
+    }
+
+    private static String frameworkZh(Rule rule) {
+        return switch (rule.framework()) {
+            case "spring-ai" -> "Spring AI";
+            case "langchain4j" -> "LangChain4j";
+            default -> "通用";
+        };
+    }
+
+    private static String frameworkEn(Rule rule) {
+        return switch (rule.framework()) {
+            case "spring-ai" -> "Spring AI";
+            case "langchain4j" -> "LangChain4j";
+            default -> "any";
+        };
     }
 
     @Test
