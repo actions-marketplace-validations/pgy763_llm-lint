@@ -4,6 +4,7 @@ import io.github.pgy763.llmlint.config.Config;
 import io.github.pgy763.llmlint.config.ConfigException;
 import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
+import io.github.pgy763.llmlint.engine.Advice;
 import io.github.pgy763.llmlint.engine.Baseline;
 import io.github.pgy763.llmlint.engine.ChangedFiles;
 import io.github.pgy763.llmlint.engine.FileList;
@@ -458,14 +459,17 @@ public final class Main implements Callable<Integer> {
             for (Map.Entry<String, Integer> entry : changed.entrySet()) {
                 out.println(Messages.f("改好 %s（%d 处）", "fixed %s (%d spots)", entry.getKey(), entry.getValue()));
             }
+            out.print(Advice.render(findings));
             out.println(Messages.f("llm-lint: 一共改了 %d 处，动了 %d 个文件",
                     "llm-lint: %d spots in %d files", changed.values().stream().mapToInt(Integer::intValue).sum(),
                     changed.size()));
             out.flush();
             long left = findings.size() - fixable;
             if (left > 0) {
-                err.println(Messages.f("llm-lint: 还有 %d 处没有现成补丁（目前只有 LLM006 和 LLM018 能自动修）",
-                        "llm-lint: %d finding(s) have no ready-made patch (only LLM006 and LLM018 are auto-fixable today)",
+                err.println(Messages.f(
+                        "llm-lint: 还有 %d 处没有现成补丁（能自动修的只有 LLM006 和 LLM018；LLM019 / LLM020 会给改法建议）",
+                        "llm-lint: %d finding(s) have no ready-made patch (only LLM006 and LLM018 are auto-fixable; "
+                                + "LLM019 / LLM020 come with advice)",
                         left));
             }
             return 0;
@@ -480,13 +484,15 @@ public final class Main implements Callable<Integer> {
             }
             if (patch.isEmpty()) {
                 if (!findings.isEmpty()) {
-                    err.println(Messages.t("llm-lint: 这些问题没有现成的补丁（目前只有 LLM006 和 LLM018 能自动修）",
-                            "llm-lint: no ready-made patch for these findings (only LLM006 and LLM018 are auto-fixable today)"));
+                    err.println(Messages.t("llm-lint: 这些问题没有现成的补丁（目前只有 LLM006 和 LLM018 能自动修；LLM019 / LLM020 会给改法建议）",
+                            "llm-lint: no ready-made patch for these findings (only LLM006 and LLM018 are auto-fixable today; LLM019 / LLM020 get advice)"));
                 }
             } else {
                 out.print(patch);
                 out.flush();
             }
+            out.print(Advice.render(findings));
+            out.flush();
         } else {
             String output = switch (format.toLowerCase(Locale.ROOT)) {
                 case "json" -> JsonReport.format(findings);
@@ -929,6 +935,10 @@ public final class Main implements Callable<Integer> {
         out.println(Messages.t("级别      ", "Level     ") + levelText(config, rule));
         out.println(Messages.t("框架      ", "Framework ") + framework(rule));
         out.println(Messages.t("文档      ", "Docs      ") + rule.docUrl());
+        String pathOverrides = ExplainReport.overridesList(rule, config);
+        if (!pathOverrides.isEmpty()) {
+            out.println(Messages.t("路径覆盖  ", "Overrides ") + pathOverrides);
+        }
         if (!rule.why().isEmpty()) {
             out.println();
             out.println(rule.why());

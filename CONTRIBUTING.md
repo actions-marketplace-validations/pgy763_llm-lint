@@ -17,7 +17,7 @@ mvn -B -ntp verify
 java -jar target/llm-lint.jar samples/bad
 ```
 
-`verify` 会跑全部测试（现在是 247 个）：`samples/bad` 里每个文件必须**正好**触发一条规则，`samples/good` 里必须一条都不触发。这条约束是这套项目的地基，别绕开它。
+`verify` 会跑全部测试（现在是 252 个）：`samples/bad` 里每个文件必须**正好**触发一条规则，`samples/good` 里必须一条都不触发。这条约束是这套项目的地基，别绕开它。
 
 > **Windows 上如果 `mvn verify` 报 `Cannot run program "cmd.exe" ... CreatePipe`**，加 `-DforkCount=0` 让测试在同一个 JVM 里跑：`mvn -B -ntp verify -DforkCount=0`。这是某些沙箱环境的限制，CI（Linux）不需要。
 

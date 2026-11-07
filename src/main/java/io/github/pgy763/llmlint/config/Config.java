@@ -93,6 +93,13 @@ public final class Config {
         return overrides;
     }
 
+    /** 提到这条规则的覆盖段，按书写顺序（也就是优先级）返回。 */
+    public List<PathOverride> overridesFor(String ruleId) {
+        return overrides.stream()
+                .filter(override -> override.levels().containsKey(ruleId))
+                .toList();
+    }
+
     /**
      * 这个文件里的这条规则该按什么级别算；写成 off 就是要它闭嘴。
      *

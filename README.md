@@ -289,10 +289,11 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
   --since         只扫这个 git 引用以来改动的文件，如 origin/main、HEAD~1
   --files-from    只扫这个文件里列出的路径，一行一个；写 - 从标准输入读
-  --fix           不打印报告，改为输出 unified diff（目前 LLM006 / LLM018 有补丁）
+  --fix           不打印报告，改为输出 unified diff（LLM006 / LLM018 有补丁；LLM019 / LLM020 只给改法建议）
   --write         跟 --fix 一起用：补丁直接写回文件，不再只打印
   --lang          zh（默认）/ en；只换人看的文字，JSON 字段名不变
-  --explain       一条规则的级别、框架、理由、抑制方式；all 列全部，配 --format markdown 直接出文档
+  --explain       一条规则的级别、框架、理由、抑制方式；all 列全部，配 --format markdown 直接出文档；
+                  有按路径覆盖（overrides）时，会写出每段路径下实际生效的级别
   --list-rules    列出全部规则；--format markdown 出表格、--format json 出机器可读的目录
   --docs-en       跟 --docs 一样，只是写英文页（永久链接在 /en/rules/ 下）
   --docs          重新生成 docs/rules 下每条规则一页，连索引页的表格一起换：生成段换新，手写的「为什么会踩」留着
@@ -419,6 +420,10 @@ java -jar llm-lint.jar --fix --write src
 目前只有 LLM006（SSE 缺 charset）和 LLM018（流式接口没写 produces）有现成补丁，
 别的问题会明说「没有现成的补丁」，不会假装改了。
 
+LLM019（`@Tool` 里阻塞）和 LLM020（事务里等异步结果）要挪代码位置，机器改容易改坏，
+所以这两条**不出补丁、只出建议**：`--fix` 和 `--fix --write` 都会在输出末尾打一句改法，
+文件不动。
+
 注意退出码还是按问题算：有 error 时 `--fix` 退出 `1`，脚本里用
 `--fail-on never` 或 `|| true` 才不会被它中断。`--fix --write` 是例外——写完就退出 `0`，
 要确认还剩什么，再跑一次普通扫描。
@@ -488,7 +493,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.27.0 && git push origin v0.27.0
+git tag v0.28.0 && git push origin v0.28.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`

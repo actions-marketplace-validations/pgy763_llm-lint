@@ -37,6 +37,10 @@ public final class ExplainReport {
             if (!rule.why().isEmpty()) {
                 sb.append(rule.why()).append("\n\n");
             }
+            String overrides = overridesList(rule, config);
+            if (!overrides.isEmpty()) {
+                sb.append(Messages.t("按路径覆盖：", "Per-path overrides: ")).append(overrides).append("\n\n");
+            }
             sb.append(Messages.f("不想在某个文件里看它：在该行或上一行写 `// llm-lint:ignore %s`。",
                             "To mute it in one place, put `// llm-lint:ignore %s` on that line or the line above.",
                             rule.id()))
@@ -57,6 +61,24 @@ public final class ExplainReport {
                         : level.label() + Messages.f("（.llm-lint.yml 从默认的 %s 改的）",
                                 " (changed from the default %s in .llm-lint.yml)", rule.severity().label()))
                 .orElse(rule.severity().label());
+    }
+
+    /** 按路径覆盖：哪些路径下这条换了级别，只有 "`a` → off；`b` → error" 这段。没有覆盖返回空串。 */
+    public static String overridesList(Rule rule, Config config) {
+        List<Config.PathOverride> overrides = config.overridesFor(rule.id());
+        if (overrides.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < overrides.size(); i++) {
+            Config.PathOverride override = overrides.get(i);
+            if (i > 0) {
+                sb.append(Messages.t("；", "; "));
+            }
+            sb.append('`').append(override.pattern()).append("` → ")
+                    .append(override.levels().get(rule.id()).label());
+        }
+        return sb.toString();
     }
 
     private static String framework(Rule rule) {

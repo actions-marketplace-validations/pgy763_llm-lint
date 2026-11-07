@@ -1,9 +1,13 @@
 package io.github.pgy763.llmlint;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -89,5 +93,30 @@ class ExplainMarkdownTest {
         Run run = run("--explain", "LLM999", "--format", "markdown");
         assertEquals(2, run.code());
         assertTrue(run.err().contains("没有这条规则"), run.err());
+    }
+
+    @Test
+    void explain里能看到按路径覆盖的级别(@TempDir Path dir) throws Exception {
+        Path config = dir.resolve(".llm-lint.yml");
+        String yaml = String.join(String.valueOf((char) 10),
+                "version: 1",
+                "overrides:",
+                "  - files: src/generated/**",
+                "    rules:",
+                "      LLM007: off");
+        Files.writeString(config, yaml, StandardCharsets.UTF_8);
+
+        Run text = run("--config", config.toString(), "--explain", "LLM007");
+        assertEquals(0, text.code(), text.err());
+        assertTrue(text.out().contains("路径覆盖"), text.out());
+        assertTrue(text.out().contains("`src/generated/**` → off"), text.out());
+
+        Run md = run("--config", config.toString(), "--explain", "LLM007", "--format", "markdown");
+        assertEquals(0, md.code(), md.err());
+        assertTrue(md.out().contains("按路径覆盖：`src/generated/**` → off"), md.out());
+
+        Run other = run("--config", config.toString(), "--explain", "LLM001");
+        assertEquals(0, other.code(), other.err());
+        assertFalse(other.out().contains("路径覆盖"), other.out());
     }
 }

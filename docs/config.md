@@ -153,6 +153,8 @@ overrides:
 - `off` 是丢掉这条结果，不是不扫这个文件：文件照样计入扫描文件数，存基线时也不会记它。
 - 写错了同样退出 `2` 并带 `文件:行号`：`overrides` 不是列表、某段少了 `files` 或 `rules`、
   规则号拼错，都会说清楚是哪一段的问题。
+- 想看某条规则在某段路径下究竟算哪一级：`java -jar llm-lint.jar --explain LLM007` 会多打一行
+  `路径覆盖  \`src/generated/**\` → off`，不用回头翻配置文件。
 
 ### fail-on 和 min-severity
 

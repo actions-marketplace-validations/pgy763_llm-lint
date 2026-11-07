@@ -210,6 +210,24 @@ class ConfigTest {
     }
 
     @Test
+    void overridesFor只挑提到这条规则的段() throws Exception {
+        Config config = config("""
+                version: 1
+                overrides:
+                  - files: "src/generated/**"
+                    rules:
+                      LLM010: off
+                  - files: "src/main/**"
+                    rules:
+                      LLM007: error
+                """);
+
+        assertEquals(1, config.overridesFor("LLM010").size());
+        assertEquals("src/generated/**", config.overridesFor("LLM010").get(0).pattern());
+        assertTrue(config.overridesFor("LLM001").isEmpty());
+    }
+
+    @Test
     void 覆盖的路径写法跟exclude一样宽容() throws Exception {
         Config config = config("""
                 overrides:

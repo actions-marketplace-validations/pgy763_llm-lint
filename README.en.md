@@ -307,10 +307,12 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --jobs          how many files to scan at once: default CPU count (max 8), 1 = sequential
   --since         only scan files changed since this git ref, e.g. origin/main or HEAD~1
   --files-from    only scan the paths listed in this file, one per line; - reads stdin
-  --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches)
+  --fix           print a unified diff instead of a report (LLM006 / LLM018 have patches;
+                  LLM019 / LLM020 get a written suggestion instead)
   --write         with --fix, write the patches into the files instead of printing them
   --lang          zh (default) / en; human-readable text only, JSON fields stay put
-  --explain       level, framework, rationale and suppression for one rule; all for every rule
+  --explain       level, framework, rationale and suppression for one rule; all for every rule;
+                  per-path overrides are listed when your config has them
                   (with --format markdown you get a document you can paste)
   --list-rules    every rule; --format markdown for a table, --format json for a machine-readable catalog
   --docs-en       same as --docs, but writes the English pages (permalinks under /en/rules/)
@@ -444,6 +446,10 @@ leaves no half-written file. It prints how many spots changed per file and, on s
 findings still have no patch. `--write` without `--fix` exits `2`. Only LLM006 (SSE without charset) and LLM018 (streaming endpoint without
 `produces`) have patches today; anything else says so instead of pretending.
 
+LLM019 (`@Tool` doing blocking work) and LLM020 (waiting for async results inside a transaction)
+would need code moves, which a patch tool tends to get wrong — so they get **advice, not a patch**:
+`--fix` and `--fix --write` print a suggestion at the end and leave the file alone.
+
 Exit codes still follow the findings: with errors, `--fix` exits `1`, so use `--fail-on never` or
 `|| true` in scripts when you only want the patch.
 
@@ -516,7 +522,7 @@ the repository config), to make sure "the jar people download actually works".
 Bump the version in `pom.xml`, then push a tag:
 
 ```bash
-git tag v0.27.0 && git push origin v0.27.0
+git tag v0.28.0 && git push origin v0.28.0
 ```
 
 The `release` workflow runs `mvn verify`, checks that the jar version matches the tag, creates a
