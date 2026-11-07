@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** {@code --docs <dir>}：生成段每次重写，手写段一个字都不能丢。 */
@@ -142,5 +143,31 @@ class DocsPagesCliTest {
         assertTrue(idx.contains("| Rule | Level | Framework | What it catches |"), idx);
         assertTrue(idx.contains("/en/rules/llm001.html"), idx);
         assertTrue(idx.contains("keep me"), "索引页的手写部分被弄丢了");
+    }
+
+    @Test
+    void 有搜索页才写索引(@TempDir Path dir) throws Exception {
+        Path pages = dir.resolve("docs/rules");
+        Files.createDirectories(pages);
+        String nl = String.valueOf((char) 10);
+        Files.writeString(dir.resolve("docs/search.md"), String.join(nl, "---", "title: x", "---", ""),
+                StandardCharsets.UTF_8);
+        Run run = run("--docs", pages.toString());
+        assertEquals(0, run.code(), run.err());
+        Path json = dir.resolve("docs/search.json");
+        assertTrue(Files.isRegularFile(json), "有 search.md 却没写 search.json");
+        String text = Files.readString(json, StandardCharsets.UTF_8);
+        assertTrue(text.contains("/rules/llm001.html"), text);
+        char quote = 34;
+        String needle = "" + quote + "id" + quote + ":";
+        int rows = 0;
+        for (int at = text.indexOf(needle); at >= 0; at = text.indexOf(needle, at + needle.length())) {
+            rows++;
+        }
+        assertEquals(22, rows, "搜索索引里不是 22 条");
+
+        Path plain = dir.resolve("plain/rules");
+        assertEquals(0, run("--docs", plain.toString()).code());
+        assertFalse(Files.exists(dir.resolve("plain/search.json")), "没有搜索页就不该凭空写索引");
     }
 }

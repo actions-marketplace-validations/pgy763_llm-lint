@@ -17,7 +17,7 @@ whether a call looks like a model call.
 The level shown in the table is the **default**. If a rule does not fit your project — a false positive,
 or your team is stricter — say so in `.llm-lint.yml` at the repo root; no need to change the tool or to
 hand-write flags in CI: see [config](/en/config.html) (Chinese for now:
-[config.md](https://github.com/pgy763/llm-lint/blob/main/docs/config.md)).
+[config.md](https://github.com/pgy763/llm-lint/blob/main/docs/config.md)). Looking for one rule? [Search](search.html).
 
 The tables below are generated: `llm-lint --docs-en docs/en/rules` rewrites the part between the
 markers, and that is the only part of this page you should not edit. 中文版：[规则手册](/rules.html).

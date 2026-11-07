@@ -114,6 +114,24 @@ public final class RulePages {
         return "https://pgy763.github.io/llm-lint" + base + id.toLowerCase(Locale.ROOT) + ".html";
     }
 
+    /** 搜索索引：规则号、标题、级别、一句话摘要、页面地址。 */
+    public static String searchJson(List<Rule> rules) {
+        StringBuilder sb = new StringBuilder("[\n");
+        for (int i = 0; i < rules.size(); i++) {
+            Rule rule = rules.get(i);
+            if (i > 0) {
+                sb.append(",\n");
+            }
+            sb.append("  {\"id\": \"").append(JsonReport.escape(rule.id()))
+                    .append("\", \"title\": \"").append(JsonReport.escape(rule.title()))
+                    .append("\", \"level\": \"").append(rule.severity().label())
+                    .append("\", \"summary\": \"").append(JsonReport.escape(rule.summary()))
+                    .append("\", \"url\": \"").append(JsonReport.escape(pageUrl(rule.id())))
+                    .append("\"}");
+        }
+        return sb.append("\n]\n").toString();
+    }
+
     /** 索引页里的生成段：总表 + 每条的锚点和链接。 */
     public static String index(List<Rule> rules) {
         StringBuilder sb = new StringBuilder();

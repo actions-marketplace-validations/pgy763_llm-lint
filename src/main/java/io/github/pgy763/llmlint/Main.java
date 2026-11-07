@@ -658,6 +658,7 @@ public final class Main implements Callable<Integer> {
                 Files.writeString(file, text, StandardCharsets.UTF_8);
             }
             writeIndex(out, dir);
+            writeSearch(out, dir);
             out.println(Messages.f("写好 %d 个规则页面：%s（新建 %d 个，更新 %d 个）",
                     "Wrote %d rule pages under %s (%d new, %d updated)", Rules.all().size(),
                     ConfigLoader.display(dir, Path.of("").toAbsolutePath()), fresh, changed));
@@ -671,6 +672,22 @@ public final class Main implements Callable<Integer> {
             return 2;
         } finally {
             Messages.use(keep);
+        }
+    }
+
+    private void writeSearch(PrintWriter out, Path dir) throws IOException {
+        Path parent = dir.getParent();
+        Path file = parent == null ? Path.of("search.json") : parent.resolve("search.json");
+        Path page = parent == null ? Path.of("search.md") : parent.resolve("search.md");
+        if (!Files.isRegularFile(page)) {
+            return;
+        }
+        String text = RulePages.searchJson(Rules.all());
+        String old = Files.isRegularFile(file) ? Files.readString(file, StandardCharsets.UTF_8) : null;
+        Files.writeString(file, text, StandardCharsets.UTF_8);
+        if (old == null || !old.equals(text)) {
+            out.println(Messages.f("搜索索引：%s（%d 条）", "Search index: %s (%d rules)",
+                    ConfigLoader.display(file, Path.of("").toAbsolutePath()), Rules.all().size()));
         }
     }
 

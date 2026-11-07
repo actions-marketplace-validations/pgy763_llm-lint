@@ -298,4 +298,20 @@ class DocsTest {
             Messages.use(keep);
         }
     }
+
+    @Test
+    void 搜索索引和规则表一致() throws IOException {
+        assertEquals(RulePages.searchJson(Rules.all()), read(Path.of("docs/search.json")),
+                "搜索索引过期了：跑一次 llm-lint --docs docs/rules");
+        Lang keep = Messages.lang();
+        Messages.use(Lang.EN);
+        try {
+            assertEquals(RulePages.searchJson(Rules.all()), read(Path.of("docs/en/search.json")),
+                    "英文搜索索引过期了：跑一次 llm-lint --docs-en docs/en/rules");
+        } finally {
+            Messages.use(keep);
+        }
+        assertTrue(Files.isRegularFile(Path.of("docs/search.md")), "少了 docs/search.md");
+        assertTrue(Files.isRegularFile(Path.of("docs/en/search.md")), "少了 docs/en/search.md");
+    }
 }
