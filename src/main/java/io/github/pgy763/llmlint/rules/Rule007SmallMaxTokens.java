@@ -31,6 +31,11 @@ public final class Rule007SmallMaxTokens extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`maxTokens` 太小，工具参数被截断", "maxTokens too small, tool arguments get cut off");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

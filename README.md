@@ -41,7 +41,8 @@ llm-lint: 1 个问题（1 error / 0 warning），扫了 12 个文件
 
 - 有 `error` 时退出码 `1`，可以直接卡住 CI；只有 `warning` 时退出码 `0`。
 - 想改阈值：`--fail-on warning`（警告也卡）或 `--fail-on never`（只报告，不失败）。
-- 想知道某条规则为什么存在：`java -jar llm-lint.jar --explain LLM001`。
+- 想知道某条规则为什么存在：`java -jar llm-lint.jar --explain LLM001`；
+  要贴进 issue、文档或博客就加 `--format markdown`（`--explain all --format markdown` 一次给全部二十二条）。
 
 不想先拿自己的项目试也行：`samples/bad/` 里是二十二条反例，`java -jar llm-lint.jar samples/bad`
 会把它们全报出来；`samples/good/` 是改好的版本，一条都不报。
@@ -96,6 +97,11 @@ rules:
 exclude:
   - "**/generated/**"   # 代码生成器的产物，改了也会被覆盖
 
+overrides:              # 照扫，但生成代码里硬编码的 key 不算问题
+  - files: "src/generated/**"
+    rules:
+      LLM010: off
+
 fail-on: error
 ```
 
@@ -111,6 +117,9 @@ java -jar llm-lint.jar src/main/java
   抄下来的旧值钉死。
 - **优先级**：命令行 > 配置文件 > 默认值。CI 里临时想放宽，`--fail-on never` 仍然说了算；
   `--exclude` 和配置里的 `exclude` 取**并集**。
+- **按路径改级别**：`exclude` 是整段不看；`overrides` 是照扫、只改那段路径下的级别
+  （`off` 丢掉这条结果）。同一规则多段命中时后写的盖先写的，写法见
+  [docs/config.md](docs/config.md#overrides)。
 - **写错了就说清楚**：未知的键、未知的规则、未知的级别都退出码 `2`，带 `文件:行号`，
   拼错的编号还会猜一下（`LLM07` → `是不是 LLM007？`）。不猜、不跳过——静默忽略一个拼错的
   规则名，比直接失败难查得多。
@@ -243,7 +252,7 @@ error 写成 `<failure>`（会让 job 红），warning 放进 `<system-out>`（�
 | LLM021 | error | 通用 | `@Transactional` 方法返回 `SseEmitter` / `ResponseBodyEmitter` | 事务活到整个流结束，连接池先耗尽 |
 | LLM022 | warning | 通用 | `@Scheduled` / `@Async` 里直接调模型 | 没有请求就没有会话，记忆要么串台要么每次新建 |
 
-每条的反例、改法、判断范围：**[docs/rules.md](docs/rules.md)**。
+每条的反例、改法、判断范围：**[docs/rules.md](docs/rules.md)** 是索引，每条还有单独一页（例如 [LLM007](https://pgy763.github.io/llm-lint/rules/llm007.html)），页面顶上的表、以及本页的表格都由 `llm-lint --docs docs/rules` 生成。英文版也是每条一页（[LLM007](https://pgy763.github.io/llm-lint/en/rules/llm007.html)），用 `llm-lint --docs-en docs/en/rules` 生成。找不到就 [搜索](https://pgy763.github.io/llm-lint/search.html)。
 `java -jar llm-lint.jar --list-rules` 随时能看这张表。
 
 ## 用法
@@ -256,7 +265,7 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
          [--baseline .llm-lint.baseline] [--save-baseline .llm-lint.baseline]
          [--baseline-stats] [--summary <file>] [--markdown <file>] [--jobs N] [--since <ref>]
          [--files-from <file>] [--fix [--write]]
-         [--lang <zh|en>] [--explain LLM001] [--list-rules [--format markdown|json]] <path...>
+         [--lang <zh|en>] [--explain LLM001|all] [--list-rules [--format markdown|json]] [--docs <dir>] [--docs-en <dir>] <path...>
 
   --format        text（默认，人看）/ json / github（Actions 注解）/ sarif（Code Scanning）
                   / junit（Jenkins / GitLab 认的报告）/ html（一份能双击打开的页面）
@@ -280,11 +289,14 @@ llm-lint [--format text|json|github|sarif|junit|html] [--fail-on error|warning|n
   --jobs          同时扫几个文件：默认按 CPU 核数（最多 8），1 表示一个一个来
   --since         只扫这个 git 引用以来改动的文件，如 origin/main、HEAD~1
   --files-from    只扫这个文件里列出的路径，一行一个；写 - 从标准输入读
-  --fix           不打印报告，改为输出 unified diff（目前 LLM006 / LLM018 有补丁）
+  --fix           不打印报告，改为输出 unified diff（LLM006 / LLM018 有补丁；LLM019 / LLM020 只给改法建议）
   --write         跟 --fix 一起用：补丁直接写回文件，不再只打印
   --lang          zh（默认）/ en；只换人看的文字，JSON 字段名不变
-  --explain       一条规则的级别、框架、理由、抑制方式
+  --explain       一条规则的级别、框架、理由、抑制方式；all 列全部，配 --format markdown 直接出文档；
+                  有按路径覆盖（overrides）时，会写出每段路径下实际生效的级别
   --list-rules    列出全部规则；--format markdown 出表格、--format json 出机器可读的目录
+  --docs-en       跟 --docs 一样，只是写英文页（永久链接在 /en/rules/ 下）
+  --docs          重新生成 docs/rules 下每条规则一页，连索引页的表格一起换：生成段换新，手写的「为什么会踩」留着
 ```
 
 `<path>` 可以是目录，也可以是单个 `.java`。目录会递归找 `.java`，跳过 `target/` 和 `build/`。
@@ -408,6 +420,10 @@ java -jar llm-lint.jar --fix --write src
 目前只有 LLM006（SSE 缺 charset）和 LLM018（流式接口没写 produces）有现成补丁，
 别的问题会明说「没有现成的补丁」，不会假装改了。
 
+LLM019（`@Tool` 里阻塞）和 LLM020（事务里等异步结果）要挪代码位置，机器改容易改坏，
+所以这两条**不出补丁、只出建议**：`--fix` 和 `--fix --write` 都会在输出末尾打一句改法，
+文件不动。
+
 注意退出码还是按问题算：有 error 时 `--fix` 退出 `1`，脚本里用
 `--fail-on never` 或 `|| true` 才不会被它中断。`--fix --write` 是例外——写完就退出 `0`，
 要确认还剩什么，再跑一次普通扫描。
@@ -477,7 +493,7 @@ jar 真的能用」。
 改完 `pom.xml` 的版本号，打 tag 就行：
 
 ```bash
-git tag v0.21.0 && git push origin v0.21.0
+git tag v0.28.0 && git push origin v0.28.0
 ```
 
 `release` 会跑 `mvn verify`、核对 jar 里的版本和 tag 一致、建同名 release 并把 `llm-lint.jar`
@@ -499,7 +515,7 @@ the GitHub Marketplace*、选个分类。这一步只能手工点，勾完这个
 这个项目的边界很窄：只读语法树、只报认得出的，所以**加一条规则是一件能在一个下午做完的事**。
 
 - 想加规则：照着 [CONTRIBUTING](CONTRIBUTING.md#加一条规则) 的清单做——一个类、一个反例、一个正例、一节文档，`mvn verify` 会把漏掉的地方指出来
-- 不知道从哪下手：[ROADMAP](ROADMAP.md) 里的规则提案（LLM019–LLM022）都做完了，还剩 Docker 镜像、`--files-from` 这些工程活，标了难度，标着 `good first issue` 的是真的第一次提 PR 就能做完
+- 不知道从哪下手：[ROADMAP](ROADMAP.md) 里的规则提案（LLM019–LLM022）都做完了，工程活也只剩 `--fix` 扩几条；想加新的先开个 issue 说说用途
 - 发现误报：用「规则误报」模板开 issue，**贴能复现的代码**，比描述有用十倍
 - 只是想说声好用 / 不好用：开个 [issue](https://github.com/pgy763/llm-lint/issues/new) 说一句，或者点个 star 都行
 

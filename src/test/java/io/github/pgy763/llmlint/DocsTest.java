@@ -3,6 +3,9 @@ package io.github.pgy763.llmlint;
 import io.github.pgy763.llmlint.config.Config;
 import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
+import io.github.pgy763.llmlint.lang.Lang;
+import io.github.pgy763.llmlint.lang.Messages;
+import io.github.pgy763.llmlint.report.RulePages;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -35,9 +38,16 @@ class DocsTest {
     private static final Path SCHEMA = Path.of("docs/llm-lint.schema.json");
     private static final Path DOCKERFILE = Path.of("Dockerfile");
     private static final Path DOCKER_WORKFLOW = Path.of(".github/workflows/docker.yml");
+    private static final Path CONFIG_DOC = Path.of("docs/config.md");
+    private static final List<String> TOP_LEVEL_KEYS =
+            List.of("version", "rules", "exclude", "overrides", "fail-on", "min-severity", "baseline");
 
     private static String read(Path file) throws IOException {
         return Files.readString(file, StandardCharsets.UTF_8);
+    }
+
+    private static Path page(Rule rule) {
+        return Path.of("docs/rules").resolve(RulePages.fileName(rule));
     }
 
     @Test
@@ -47,8 +57,40 @@ class DocsTest {
             String anchor = rule.id().toLowerCase(Locale.ROOT);
             assertTrue(doc.contains("<a id=\"" + anchor + "\"></a>"),
                     "docs/rules.md 少了 " + rule.id() + " 的锚点，docUrl 里的 #" + anchor + " 会 404");
-            assertTrue(doc.contains("\n## " + rule.id() + " "),
-                    "docs/rules.md 少了 " + rule.id() + " 的小节标题");
+            assertTrue(doc.contains("https://pgy763.github.io/llm-lint/rules/" + anchor + ".html"),
+                    "docs/rules.md 的索引没有链到 " + rule.id() + " 自己的页面");
+            assertTrue(Files.isRegularFile(page(rule)), "少了 " + page(rule) + "，站上就是 404");
+            assertTrue(read(page(rule)).contains("\n## " + rule.id() + " "),
+                    page(rule) + " 少了 " + rule.id() + " 的小节标题");
+        }
+    }
+
+    @Test
+    void 规则页的生成段和代码完全一致() throws Exception {
+        // 手改生成段、或者加了规则忘了重跑 --docs，这里都会红。
+        for (Rule rule : Rules.all()) {
+            String text = read(page(rule));
+            assertTrue(text.startsWith(RulePages.head(rule)),
+                    page(rule) + " 的生成段和 RulePages.head() 对不上了——改完代码跑一次 `llm-lint --docs docs/rules`");
+            String marker = RulePages.endMarker(rule);
+            int at = text.indexOf(marker);
+            assertTrue(at > 0, page(rule) + " 少了结束标记 " + marker);
+            assertFalse(text.substring(at + marker.length()).isBlank(),
+                    page(rule) + " 的手写部分被清空了（只剩生成段）");
+            assertFalse(text.contains("这段手写：出现时的样子"),
+                    page(rule) + " 还留着占位符，手写内容没填");
+        }
+    }
+
+    @Test
+    void 页面标题和永久链接跟着规则走() throws Exception {
+        for (Rule rule : Rules.all()) {
+            String text = read(page(rule));
+            String anchor = rule.id().toLowerCase(Locale.ROOT);
+            assertTrue(text.contains("permalink: /rules/" + anchor + ".html"), page(rule) + " 的 permalink 不对");
+            assertTrue(text.contains("title: \"" + rule.id() + " " + rule.title() + "\""),
+                    page(rule) + " 的 title 没跟上规则标题");
+            assertTrue(text.contains("description: \""), page(rule) + " 缺 description，社交卡片会没话说");
         }
     }
 
@@ -93,10 +135,24 @@ class DocsTest {
     void schema列了全部顶层键() throws IOException {
         String schema = read(SCHEMA);
 
-        for (String key : List.of("version", "rules", "exclude", "fail-on", "min-severity", "baseline")) {
+        for (String key : TOP_LEVEL_KEYS) {
             assertTrue(schema.contains("\"" + key + "\""), "schema 里少了 " + key);
         }
         assertTrue(schema.contains("\"additionalProperties\": false"), "顶层要禁止未知键，和解析器行为一致");
+    }
+
+    @Test
+    void 配置文档的表和schema对得上() throws IOException {
+        String doc = read(CONFIG_DOC);
+
+        Matcher m = Pattern.compile("(?m)^\\| `([a-z][a-z-]*)` \\| (?:是|否) \\|").matcher(doc);
+        Set<String> documented = new TreeSet<>();
+        while (m.find()) {
+            documented.add(m.group(1));
+        }
+
+        assertEquals(new TreeSet<>(TOP_LEVEL_KEYS), documented,
+                "docs/config.md 的顶层键表和 schema 对不上：加了键就得同时改三处（解析器、schema、文档）");
     }
 
     @Test
@@ -210,13 +266,94 @@ class DocsTest {
         for (Rule rule : Rules.all()) {
             String[] cells = rows.get(rule.id());
             assertNotNull(cells, "规则手册顶部的表里没有 " + rule.id());
-            String framework = switch (rule.framework()) {
-                case "spring-ai" -> "Spring AI";
-                case "langchain4j" -> "LangChain4j";
-                default -> "通用";
-            };
             assertEquals(rule.severity().label(), cells[0], rule.id() + " 在表里的级别和代码不一样");
-            assertEquals(framework, cells[1], rule.id() + " 在表里的框架和代码不一样");
+            assertEquals(frameworkZh(rule), cells[1], rule.id() + " 在表里的框架和代码不一样");
         }
+    }
+
+    @Test
+    void README里的规则表也跟代码对得上() throws IOException {
+        // README 是绝大多数人看到的第一张表，二十多行全靠手维护，最容易在加规则时漏改。
+        String zh = read(Path.of("README.md"));
+        String en = read(Path.of("README.en.md"));
+        for (Rule rule : Rules.all()) {
+            String level = rule.severity().label();
+            String zhRow = "| " + rule.id() + " | " + level + " | " + frameworkZh(rule) + " | ";
+            String enRow = "| " + rule.id() + " | " + level + " | " + frameworkEn(rule) + " | ";
+            assertTrue(zh.contains(zhRow), "README.md 的规则表跟代码对不上，少了这一行：" + zhRow);
+            assertTrue(en.contains(enRow), "README.en.md 的规则表跟代码对不上，少了这一行：" + enRow);
+        }
+    }
+
+    private static String frameworkZh(Rule rule) {
+        return switch (rule.framework()) {
+            case "spring-ai" -> "Spring AI";
+            case "langchain4j" -> "LangChain4j";
+            default -> "通用";
+        };
+    }
+
+    private static String frameworkEn(Rule rule) {
+        return switch (rule.framework()) {
+            case "spring-ai" -> "Spring AI";
+            case "langchain4j" -> "LangChain4j";
+            default -> "any";
+        };
+    }
+
+    @Test
+    void 索引页的生成段和代码完全一致() throws IOException {
+        // 这一段是 llm-lint --docs docs/rules 写的：表格、锚点、链接都必须等于此刻代码生成的结果，
+        // 不然站上说的和工具说的就是两回事。改了规则就重跑一次，别手改。
+        String doc = read(RULES_DOC);
+        assertTrue(doc.contains(RulePages.INDEX_START), "索引页缺开始标记 " + RulePages.INDEX_START);
+        assertTrue(doc.contains(RulePages.INDEX_END), "索引页缺结束标记 " + RulePages.INDEX_END);
+        String regenerated = RulePages.mergeIndex(doc, Rules.all());
+        assertTrue(regenerated != null, "索引页的标记不成对");
+        assertEquals(doc, regenerated, "索引页的生成段过期了：跑一次 llm-lint --docs docs/rules");
+    }
+
+    @Test
+    void 英文规则页和英文索引也跟代码对得上() throws IOException {
+        Lang keep = Messages.lang();
+        Messages.use(Lang.EN);
+        try {
+            for (Rule rule : Rules.all()) {
+                Path page = Path.of("docs/en/rules").resolve(RulePages.fileName(rule));
+                assertTrue(Files.isRegularFile(page), "少了 " + page);
+                String text = read(page);
+                String lower = rule.id().toLowerCase(Locale.ROOT);
+                assertTrue(text.contains("permalink: /en/rules/" + lower + ".html"),
+                        page + " 的永久链接不是 /en/rules/");
+                assertTrue(text.startsWith(RulePages.head(rule, "/en/rules/")),
+                        page + " 的生成段过期了：跑一次 llm-lint --docs-en docs/en/rules");
+                assertFalse(text.contains("## Why it bites"), page + " 还留着英文占位符");
+                assertTrue(text.contains("## How to fix"), page + " 少了手写的改法");
+            }
+            String index = read(Path.of("docs/en/rules.md"));
+            assertTrue(index.contains("| Rule | Level | Framework | What it catches |"), "英文索引缺生成段；跑一次 llm-lint --docs-en docs/en/rules");
+            for (Rule rule : Rules.all()) {
+                assertTrue(index.contains("/en/rules/" + rule.id().toLowerCase(Locale.ROOT) + ".html"),
+                        "英文索引里没有 " + rule.id() + " 的页面链接");
+            }
+        } finally {
+            Messages.use(keep);
+        }
+    }
+
+    @Test
+    void 搜索索引和规则表一致() throws IOException {
+        assertEquals(RulePages.searchJson(Rules.all()), read(Path.of("docs/search.json")),
+                "搜索索引过期了：跑一次 llm-lint --docs docs/rules");
+        Lang keep = Messages.lang();
+        Messages.use(Lang.EN);
+        try {
+            assertEquals(RulePages.searchJson(Rules.all()), read(Path.of("docs/en/search.json")),
+                    "英文搜索索引过期了：跑一次 llm-lint --docs-en docs/en/rules");
+        } finally {
+            Messages.use(keep);
+        }
+        assertTrue(Files.isRegularFile(Path.of("docs/search.md")), "少了 docs/search.md");
+        assertTrue(Files.isRegularFile(Path.of("docs/en/search.md")), "少了 docs/en/search.md");
     }
 }

@@ -28,6 +28,11 @@ public final class Rule001TransactionalModelCall extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`@Transactional` 里调模型，占着数据库连接等几秒", "Model call inside a transaction, holding a DB connection for seconds");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

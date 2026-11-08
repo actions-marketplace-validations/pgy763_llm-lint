@@ -54,7 +54,7 @@ fail-on: error
 
 ## 配置长什么样
 
-顶层只认六个键。多写一个键会直接报错，而不是被静默忽略——配置文件里打错的键，比没有配置更危险。
+顶层只认七个键。多写一个键会直接报错，而不是被静默忽略——配置文件里打错的键，比没有配置更危险。
 
 | 键 | 必填 | 值 | 说明 |
 | --- | --- | --- | --- |
@@ -64,6 +64,7 @@ fail-on: error
 | `fail-on` | 否 | `error` / `warning` / `never` | 什么级别让退出码变成 1。默认 `error`。 |
 | `min-severity` | 否 | `info` / `warning` / `error` | 低于这个级别的不报也不计。默认 `info`。 |
 | `baseline` | 否 | 路径字符串 | 存量问题清单，相对配置文件所在目录。写了就只报清单之外的新问题。 |
+| `overrides` | 否 | 列表 | 按路径改级别：某段路径下的结果换个级别，规则本身不动（见下面「overrides」）。 |
 
 ### rules
 
@@ -126,6 +127,33 @@ exclude: "**/generated/**,**/test/java/**"
 带 `*` 的写法会拿**完整路径和它的每一段后缀**去对，所以 `src/generated/**` 这种相对仓库根的
 写法，从仓库根扫、从子目录扫都能对上，不用先猜「当前目录是哪儿」再决定写不写 `**/` 前缀。
 文件名通配（`*Test.java`）、只写一段目录（`generated/**`）也照常有效。
+
+### overrides
+
+`exclude` 是「这段路径整个不看」。可生成代码、老代码往往需要的是**照扫，只是级别松一点**——
+那用 `overrides`：
+
+```yaml
+version: 1
+overrides:
+  - files: "src/generated/**"
+    rules:
+      LLM010: off
+  - files: "src/main/**"
+    rules:
+      LLM007: error
+```
+
+- 只影响**那些路径下的结果**：`src/generated` 里硬编码的 key 不再报，`src/main` 里的
+  `maxTokens(128)` 从 warning 提到 error，其它地方还是默认级别。
+- **规则本身不动**：`--list-rules`、SARIF 的 `defaultConfiguration.level` 仍然是全局级别；
+  变的是这条结果落在哪个文件里。
+- 同一规则被多段覆盖命中时，**后写的盖先写的**，所以把更具体的路径写在后面。
+- `files` 的写法跟 `exclude` 一样（glob 或子串，同样认相对仓库根的路径）。
+- `off` 是丢掉这条结果，不是不扫这个文件：文件照样计入扫描文件数，存基线时也不会记它。
+- 写错了同样退出 `2` 并带 `文件:行号`：`overrides` 不是列表、某段少了 `files` 或 `rules`、
+  规则号拼错，都会说清楚是哪一段的问题。
+- 想看某条规则在某段路径下究竟算哪一级：`java -jar llm-lint.jar --explain LLM007` 会多打一行「路径覆盖 `src/generated/**` → off」，不用回头翻配置文件。
 
 ### fail-on 和 min-severity
 
@@ -190,7 +218,7 @@ $ java -jar llm-lint.jar --config .llm-lint.yml src/main/java
 
 ```
 .llm-lint.yml:2: 不认识的键「rulez」
-  提示：能写的只有 version / rules / exclude / fail-on / min-severity
+  提示：能写的只有 version / rules / exclude / overrides / fail-on / min-severity
 ```
 
 ```
@@ -206,7 +234,7 @@ $ java -jar llm-lint.jar --config .llm-lint.yml src/main/java
 java -jar llm-lint.jar --init
 ```
 
-在当前目录写 `.llm-lint.yml`：二十二条规则各一行注释（带默认级别），外加 exclude、fail-on、
+在当前目录写 `.llm-lint.yml`：二十二条规则各一行注释（带默认级别），外加 exclude、overrides、fail-on、
 min-severity 的注释示例。**全部是注释，等于没生效**，你按需去掉 `#`。文件已存在时**不覆盖**，
 退出码 `2`——`--init` 是给新项目用的，不是用来重置的。
 

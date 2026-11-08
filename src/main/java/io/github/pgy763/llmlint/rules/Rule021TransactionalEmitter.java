@@ -32,6 +32,11 @@ public final class Rule021TransactionalEmitter extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`@Transactional` 方法返回 `SseEmitter` / `ResponseBodyEmitter`", "@Transactional method returning SseEmitter / ResponseBodyEmitter");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

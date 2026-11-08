@@ -96,6 +96,16 @@ jobs:
           print("lang + rule catalog ok")
           PY
 
+      - name: 自检 —— 解释能变成 markdown，自己过自己的规则
+        run: |
+          java -jar target/llm-lint.jar --explain all --format markdown > explain.md
+          test "$(grep -c '^## LLM' explain.md)" -eq 22
+          grep -q '^| 级别 |' explain.md
+          grep -q '^| 框架 |' explain.md
+          java -jar target/llm-lint.jar --format json src/main/java > self.json || true
+          python3 -c "import json; d=json.load(open('self.json')); assert d == [], f'工具自己都过不了自己的规则：{d[:3]}'"
+          echo "explain markdown + 自扫 ok"
+
       - name: 自检 —— 摘要文件能给 job 页面用
         run: |
           java -jar target/llm-lint.jar --summary target/summary.md --format json samples/bad > /dev/null || true

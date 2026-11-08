@@ -31,6 +31,11 @@ public final class Rule019ToolBlocks extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`@Tool` 方法里查库 / 调同步接口 / `Thread.sleep`", "@Tool method hitting a DB / blocking client / Thread.sleep");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

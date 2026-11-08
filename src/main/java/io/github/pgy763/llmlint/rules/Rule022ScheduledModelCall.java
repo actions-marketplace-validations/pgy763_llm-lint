@@ -31,6 +31,11 @@ public final class Rule022ScheduledModelCall extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`@Scheduled` / `@Async` 方法里直接调模型", "model call directly inside @Scheduled / @Async");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

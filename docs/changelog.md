@@ -9,6 +9,14 @@ description: 每个版本改了什么，哪些变化可能影响已经接入的�
 
 | 版本 | 主要变化 |
 | --- | --- |
+| 0.28.0 | `--fix` 对 LLM019 / LLM020 只给改法建议、不动文件；`--explain` 写出 `overrides` 在各段路径下实际生效的级别 |
+| 0.27.0 | `overrides`：同一套规则，在某些路径下换级别（生成代码松、主代码严） |
+| 0.26.0 | 站点加搜索：`--docs` 顺带生成 `search.json`，`/search.html` 用它过滤二十二条规则 |
+| 0.25.1 | 文档同步：贡献页的「工程活」清掉已做的项，测试数量跟着 229 走 |
+| 0.25.0 | 每条规则有英文页（`docs/en/rules/`，`--docs-en` 生成），英文索引也由工具维护 |
+| 0.24.0 | `--docs` 连索引页 `docs/rules.md` 的表格和链接一起生成；规则多了 `summary()` 这一列 |
+| 0.23.0 | 每条规则一页（`docs/rules/llm001.md` …）：页面顶上的表由 `--docs` 生成，手写部分重跑不会丢 |
+| 0.22.0 | `--explain` 支持 `--format markdown` 与 `all`；CI 里加一步「自己过自己的规则」 |
 | 0.21.0 | `--only` 只跑指定规则；`--fix --write` 把补丁直接写回文件 |
 | 0.20.0 | Docker 镜像出 `linux/arm64`：打 tag 时构建两个架构，Amd64 与 Apple Silicon 都跑原生镜像 |
 | 0.19.0 | `--list-rules --format markdown`：规则表能直接生成；LLM003 的框架标成 Spring AI；测试锁住表和代码一致 |

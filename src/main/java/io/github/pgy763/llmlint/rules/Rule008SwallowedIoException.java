@@ -31,6 +31,11 @@ public final class Rule008SwallowedIoException extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("空 catch 吞掉写 SSE 时的 `IOException`", "empty catch swallows IOException while writing SSE");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

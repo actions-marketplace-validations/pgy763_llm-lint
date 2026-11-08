@@ -36,6 +36,11 @@ public final class Rule009HttpClientWithoutTimeout extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`@Bean` 建的 HTTP 客户端没配超时", "HTTP client built in @Bean without a timeout");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

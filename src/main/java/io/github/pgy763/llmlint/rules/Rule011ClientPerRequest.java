@@ -38,6 +38,11 @@ public final class Rule011ClientPerRequest extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("每个请求现建 `ChatClient` / `ChatModel`", "new ChatClient / ChatModel per request");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

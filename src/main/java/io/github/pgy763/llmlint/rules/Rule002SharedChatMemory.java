@@ -30,6 +30,11 @@ public final class Rule002SharedChatMemory extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("单例 Bean 里一份 `ChatMemory`，所有人共用", "One ChatMemory bean shared by every user");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

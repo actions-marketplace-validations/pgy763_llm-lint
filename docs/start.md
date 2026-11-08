@@ -68,7 +68,11 @@ java -jar llm-lint.jar --format sarif src/main/java    # GitHub Code Scanning
 java -jar llm-lint.jar --format github src/main/java   # PR 里的行内注解
 java -jar llm-lint.jar --format junit  src/main/java   # Jenkins / GitLab
 java -jar llm-lint.jar --format html   src/main/java > report.html
+java -jar llm-lint.jar --explain all --format markdown > rules.md   # 规则说明，贴 wiki / 博客
 ```
+
+`--explain LLM007 --format markdown` 只出那一条，带表格（级别、框架、文档链接）、为什么、
+以及怎么抑制 —— 报 issue 或跟同事解释「这条凭什么报」时直接复制。
 
 `json` / `sarif` 的字段是稳定的；`text` / `github` / `junit` / `html` 里的自然语言会跟着 `--lang` 变。
 

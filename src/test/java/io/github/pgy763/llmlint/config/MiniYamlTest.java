@@ -147,8 +147,36 @@ class MiniYamlTest {
     }
 
     @Test
-    void 列表里不要写键值对() {
-        assertTrue(errorOf("exclude:\n  - LLM001: off\n").contains("只放标量"));
+    void 列表项也能写成键值对() throws Exception {
+        MiniYaml.Mapping root = MiniYaml.parse("""
+                overrides:
+                  - files: "src/generated/**"
+                    rules:
+                      LLM010: off
+                  - files: "src/main/**"
+                    rules:
+                      LLM007: error
+                """, "test.yml");
+
+        MiniYaml.Sequence items = (MiniYaml.Sequence) root.get("overrides");
+        assertEquals(2, items.items.size());
+
+        MiniYaml.Mapping first = (MiniYaml.Mapping) items.items.get(0);
+        assertEquals("src/generated/**", ((MiniYaml.Scalar) first.get("files")).value);
+        MiniYaml.Mapping firstRules = (MiniYaml.Mapping) first.get("rules");
+        assertEquals("off", ((MiniYaml.Scalar) firstRules.get("LLM010")).value);
+
+        MiniYaml.Mapping second = (MiniYaml.Mapping) items.items.get(1);
+        assertEquals("src/main/**", ((MiniYaml.Scalar) second.get("files")).value);
+    }
+
+    @Test
+    void 列表项以引号开头时不当键值对() throws Exception {
+        MiniYaml.Mapping root = MiniYaml.parse("rules:\n  - \"a: b\"\n  - plain\n", "test.yml");
+        MiniYaml.Sequence items = (MiniYaml.Sequence) root.get("rules");
+        assertEquals(2, items.items.size());
+        assertEquals("a: b", ((MiniYaml.Scalar) items.items.get(0)).value);
+        assertEquals("plain", ((MiniYaml.Scalar) items.items.get(1)).value);
     }
 
     @Test

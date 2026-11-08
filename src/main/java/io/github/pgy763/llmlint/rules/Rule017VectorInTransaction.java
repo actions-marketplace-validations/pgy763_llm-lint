@@ -28,6 +28,11 @@ public final class Rule017VectorInTransaction extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("事务里查 / 写向量库", "vector store read / write inside a transaction");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

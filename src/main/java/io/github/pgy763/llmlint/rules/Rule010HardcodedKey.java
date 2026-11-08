@@ -30,6 +30,11 @@ public final class Rule010HardcodedKey extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("硬编码的 `sk-…` / `AIza…` 密钥", "hard-coded sk-... / AIza... API key");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

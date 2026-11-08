@@ -25,6 +25,11 @@ public final class Rule004SseEmitterDefaultTimeout extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`new SseEmitter()` 用容器默认超时，30 秒断流", "new SseEmitter() without a timeout, dies at the 30s container default");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.ERROR;
     }

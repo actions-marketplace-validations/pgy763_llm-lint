@@ -7,6 +7,7 @@ import picocli.CommandLine;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -92,5 +93,15 @@ class MarkdownCliTest {
         assertEquals(Rules.all().size(),
                 run.out().lines().filter(line -> line.startsWith("| [LLM")).count());
         assertTrue(run.out().contains("| [LLM003](#llm003) | error | Spring AI |"), run.out());
+    }
+
+    @Test
+    void 终端里的表和文档站上的表是同一张() throws Exception {
+        // 手册说「这张表也能自己生成」：那就得真的一样，不然等于骗人。
+        Run run = run("--list-rules", "--format", "markdown");
+        String doc = Files.readString(Path.of("docs/rules.md"), StandardCharsets.UTF_8);
+        for (String line : run.out().lines().filter(l -> l.startsWith("| [LLM")).toList()) {
+            assertTrue(doc.contains(line + "\n"), "文档站的表里没有这一行：" + line);
+        }
     }
 }

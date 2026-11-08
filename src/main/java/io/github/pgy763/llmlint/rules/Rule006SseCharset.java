@@ -26,6 +26,11 @@ public final class Rule006SseCharset extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`produces = \"text/event-stream\"` 少了 charset", "produces = \"text/event-stream\" without a charset");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

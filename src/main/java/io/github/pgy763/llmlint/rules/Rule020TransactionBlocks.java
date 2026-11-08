@@ -35,6 +35,11 @@ public final class Rule020TransactionBlocks extends AbstractRule {
     }
 
     @Override
+    public String summary() {
+        return Messages.t("`@Transactional` 方法里 `.block()` / `Future.get()` / `Thread.sleep`", ".block() / Future.get() / Thread.sleep inside @Transactional");
+    }
+
+    @Override
     public Severity severity() {
         return Severity.WARNING;
     }

@@ -49,6 +49,30 @@
     "baseline": {
       "type": "string",
       "description": "存量问题清单的路径（相对配置文件所在目录）。写了就只报基线之外的新问题，用 --save-baseline 生成。"
+    },
+    "overrides": {
+      "type": "array",
+      "description": "按路径改级别：某段路径下的结果用不同级别，规则本身不动。同一规则多段命中时，后写的盖先写的。",
+      "items": {
+        "type": "object",
+        "required": ["files", "rules"],
+        "additionalProperties": false,
+        "properties": {
+          "files": {
+            "type": "string",
+            "description": "glob 或子串，写法跟 exclude 一样"
+          },
+          "rules": {
+            "type": "object",
+            "propertyNames": {
+              "pattern": "^LLM0[0-9][0-9]$"
+            },
+            "additionalProperties": {
+              "enum": ["off", "error", "warning", "info"]
+            }
+          }
+        }
+      }
     }
   }
 }

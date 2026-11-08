@@ -4,6 +4,7 @@ import io.github.pgy763.llmlint.config.Config;
 import io.github.pgy763.llmlint.config.ConfigException;
 import io.github.pgy763.llmlint.config.ConfigLoader;
 import io.github.pgy763.llmlint.config.RuleLevel;
+import io.github.pgy763.llmlint.engine.Advice;
 import io.github.pgy763.llmlint.engine.Baseline;
 import io.github.pgy763.llmlint.engine.ChangedFiles;
 import io.github.pgy763.llmlint.engine.FileList;
@@ -11,6 +12,7 @@ import io.github.pgy763.llmlint.engine.Fixer;
 import io.github.pgy763.llmlint.engine.LintEngine;
 import io.github.pgy763.llmlint.engine.LintResult;
 import io.github.pgy763.llmlint.engine.SourceCache;
+import io.github.pgy763.llmlint.report.ExplainReport;
 import io.github.pgy763.llmlint.report.GitHubReport;
 import io.github.pgy763.llmlint.lang.Lang;
 import io.github.pgy763.llmlint.lang.Messages;
@@ -19,6 +21,7 @@ import io.github.pgy763.llmlint.report.JsonReport;
 import io.github.pgy763.llmlint.report.JUnitReport;
 import io.github.pgy763.llmlint.report.MarkdownReport;
 import io.github.pgy763.llmlint.report.RuleCatalog;
+import io.github.pgy763.llmlint.report.RulePages;
 import io.github.pgy763.llmlint.report.SarifReport;
 import io.github.pgy763.llmlint.report.SummaryReport;
 import io.github.pgy763.llmlint.report.TextReport;
@@ -117,6 +120,14 @@ public final class Main implements Callable<Integer> {
     @Option(names = "--print-config", description = "Print the effective config (with defaults) and exit")
     private boolean printConfig;
 
+    @Option(names = "--docs", paramLabel = "<dir>",
+            description = "Regenerate the per-rule doc pages under this directory; the hand-written part is kept")
+    private Path docs;
+
+    @Option(names = "--docs-en", paramLabel = "<dir>",
+            description = "Same as --docs, but writes the English pages (permalink under /en/rules/)")
+    private Path docsEn;
+
     @Option(names = "--baseline", paramLabel = "<file>",
             description = "Only report findings that are not in this baseline; known issues stay in the file and don't block CI (see docs/baseline.md)")
     private Path baselineFile;
@@ -164,7 +175,8 @@ public final class Main implements Callable<Integer> {
     private boolean listRules;
 
     @Option(names = "--explain", paramLabel = "<ID>",
-            description = "Explain one rule, e.g. --explain LLM001")
+            description = "Explain one rule, e.g. --explain LLM001; all for every rule"
+                    + " (with --format markdown you get a document you can paste)")
     private String explain;
 
     @Override
@@ -191,6 +203,12 @@ public final class Main implements Callable<Integer> {
         }
         if (initHook != null) {
             return writeInitHook(out, err, initHook);
+        }
+        if (docs != null) {
+            return writeDocs(out, err, docs, "/rules/", Lang.ZH);
+        }
+        if (docsEn != null) {
+            return writeDocs(out, err, docsEn, "/en/rules/", Lang.EN);
         }
 
         if (write && !fix) {
@@ -268,7 +286,7 @@ public final class Main implements Callable<Integer> {
                         : "off";
                 if (table) {
                     out.printf("| [%s](#%s) | %s | %s | %s |%n",
-                            r.id(), r.id().toLowerCase(Locale.ROOT), level, framework(r), r.title());
+                            r.id(), r.id().toLowerCase(Locale.ROOT), level, framework(r), r.summary());
                 } else {
                     out.printf("%-7s %-8s %-13s %s%n", r.id(), level, framework(r), r.title());
                 }
@@ -379,7 +397,22 @@ public final class Main implements Callable<Integer> {
         }
 
         LintResult result = new LintEngine(rules, excludes, threads).run(toScan);
-        List<Finding> findings = result.findings().stream()
+        List<Finding> found = result.findings();
+        if (!config.overrides().isEmpty()) {
+            // 按路径的覆盖只能在拿到文件之后再算：同一条规则，在 src/main 是 error，在
+            // src/generated 可能是 off。规则本身不动，只换这一条结果的级别。
+            List<Finding> adjusted = new ArrayList<>(found.size());
+            for (Finding f : found) {
+                RuleLevel override = config.levelFor(f.ruleId(), f.file()).orElse(null);
+                if (override == RuleLevel.OFF) {
+                    continue;
+                }
+                adjusted.add(override == null ? f : new Finding(f.ruleId(), override.severity(),
+                        f.file(), f.line(), f.column(), f.title(), f.message(), f.docUrl()));
+            }
+            found = adjusted;
+        }
+        List<Finding> findings = found.stream()
                 .filter(f -> rank(f.severity()) >= rank(parseSeverity(minSeverityValue)))
                 .toList();
         // 基线统计要的是「扫出来的全部问题」，不是去掉旧账之后剩下的那些。
@@ -426,14 +459,17 @@ public final class Main implements Callable<Integer> {
             for (Map.Entry<String, Integer> entry : changed.entrySet()) {
                 out.println(Messages.f("改好 %s（%d 处）", "fixed %s (%d spots)", entry.getKey(), entry.getValue()));
             }
+            out.print(Advice.render(findings));
             out.println(Messages.f("llm-lint: 一共改了 %d 处，动了 %d 个文件",
                     "llm-lint: %d spots in %d files", changed.values().stream().mapToInt(Integer::intValue).sum(),
                     changed.size()));
             out.flush();
             long left = findings.size() - fixable;
             if (left > 0) {
-                err.println(Messages.f("llm-lint: 还有 %d 处没有现成补丁（目前只有 LLM006 和 LLM018 能自动修）",
-                        "llm-lint: %d finding(s) have no ready-made patch (only LLM006 and LLM018 are auto-fixable today)",
+                err.println(Messages.f(
+                        "llm-lint: 还有 %d 处没有现成补丁（能自动修的只有 LLM006 和 LLM018；LLM019 / LLM020 会给改法建议）",
+                        "llm-lint: %d finding(s) have no ready-made patch (only LLM006 and LLM018 are auto-fixable; "
+                                + "LLM019 / LLM020 come with advice)",
                         left));
             }
             return 0;
@@ -448,13 +484,15 @@ public final class Main implements Callable<Integer> {
             }
             if (patch.isEmpty()) {
                 if (!findings.isEmpty()) {
-                    err.println(Messages.t("llm-lint: 这些问题没有现成的补丁（目前只有 LLM006 和 LLM018 能自动修）",
-                            "llm-lint: no ready-made patch for these findings (only LLM006 and LLM018 are auto-fixable today)"));
+                    err.println(Messages.t("llm-lint: 这些问题没有现成的补丁（目前只有 LLM006 和 LLM018 能自动修；LLM019 / LLM020 会给改法建议）",
+                            "llm-lint: no ready-made patch for these findings (only LLM006 and LLM018 are auto-fixable today; LLM019 / LLM020 get advice)"));
                 }
             } else {
                 out.print(patch);
                 out.flush();
             }
+            out.print(Advice.render(findings));
+            out.flush();
         } else {
             String output = switch (format.toLowerCase(Locale.ROOT)) {
                 case "json" -> JsonReport.format(findings);
@@ -618,6 +656,81 @@ public final class Main implements Callable<Integer> {
         out.println(Messages.t("改完跑一次 `llm-lint --print-config`，看实际生效的是什么。",
                 "Then run `llm-lint --print-config` to see what actually takes effect."));
         return 0;
+    }
+
+    /** 每条规则一页；已经有的手写内容保留，只换生成段。 */
+    private Integer writeDocs(PrintWriter out, PrintWriter err, Path dir, String base, Lang lang) {
+        Lang keep = Messages.lang();
+        Messages.use(lang);
+        try {
+            Files.createDirectories(dir);
+            int fresh = 0;
+            int changed = 0;
+            for (Rule rule : Rules.all()) {
+                Path file = dir.resolve(RulePages.fileName(rule));
+                String existing = Files.isRegularFile(file)
+                        ? Files.readString(file, StandardCharsets.UTF_8) : null;
+                String text = RulePages.merge(rule, existing, base);
+                if (existing == null) {
+                    fresh++;
+                } else if (!existing.equals(text)) {
+                    changed++;
+                }
+                Files.writeString(file, text, StandardCharsets.UTF_8);
+            }
+            writeIndex(out, dir);
+            writeSearch(out, dir);
+            out.println(Messages.f("写好 %d 个规则页面：%s（新建 %d 个，更新 %d 个）",
+                    "Wrote %d rule pages under %s (%d new, %d updated)", Rules.all().size(),
+                    ConfigLoader.display(dir, Path.of("").toAbsolutePath()), fresh, changed));
+            out.println(Messages.t("生成段以 `<!-- /generated:llmNNN -->` 结尾，往下是手写部分，不会被覆盖。",
+                    "Everything below `<!-- /generated:llmNNN -->` is hand-written and left alone."));
+            out.flush();
+            return 0;
+        } catch (IOException e) {
+            err.println(Messages.f("llm-lint: 规则页面写不进去：%s", "llm-lint: cannot write rule pages: %s",
+                    e.getMessage()));
+            return 2;
+        } finally {
+            Messages.use(keep);
+        }
+    }
+
+    private void writeSearch(PrintWriter out, Path dir) throws IOException {
+        Path parent = dir.getParent();
+        Path file = parent == null ? Path.of("search.json") : parent.resolve("search.json");
+        Path page = parent == null ? Path.of("search.md") : parent.resolve("search.md");
+        if (!Files.isRegularFile(page)) {
+            return;
+        }
+        String text = RulePages.searchJson(Rules.all());
+        String old = Files.isRegularFile(file) ? Files.readString(file, StandardCharsets.UTF_8) : null;
+        Files.writeString(file, text, StandardCharsets.UTF_8);
+        if (old == null || !old.equals(text)) {
+            out.println(Messages.f("搜索索引：%s（%d 条）", "Search index: %s (%d rules)",
+                    ConfigLoader.display(file, Path.of("").toAbsolutePath()), Rules.all().size()));
+        }
+    }
+
+    private void writeIndex(PrintWriter out, Path dir) throws IOException {
+        Path parent = dir.getParent();
+        Path index = parent == null ? Path.of("rules.md") : parent.resolve("rules.md");
+        if (!Files.isRegularFile(index)) {
+            return;
+        }
+        String old = Files.readString(index, StandardCharsets.UTF_8);
+        String updated = RulePages.mergeIndex(old, Rules.all());
+        if (updated == null) {
+            out.println(Messages.f("索引页 %s 里没找到 %s 标记，跳过（图表行得手改）",
+                    "No %2$s markers in %1$s, skipped", index, RulePages.INDEX_START));
+            return;
+        }
+        if (updated.equals(old)) {
+            return;
+        }
+        Files.writeString(index, updated, StandardCharsets.UTF_8);
+        out.println(Messages.f("索引页也换了一段：%s", "Index page refreshed: %s",
+                ConfigLoader.display(index, Path.of("").toAbsolutePath())));
     }
 
     private Integer writeInitCi(PrintWriter out, PrintWriter err, Path dir) {
@@ -796,21 +909,36 @@ public final class Main implements Callable<Integer> {
     private Integer printExplanation(String id, Config config, List<Rule> canonical,
                                      PrintWriter out, PrintWriter err) {
         String wanted = id.trim().toUpperCase(Locale.ROOT);
-        Rule rule = canonical.stream()
-                .filter(r -> r.id().equals(wanted))
-                .findFirst()
-                .orElse(null);
-        if (rule == null) {
+        boolean everything = wanted.equals("ALL") || wanted.equals("*");
+        List<Rule> picked = everything
+                ? canonical
+                : canonical.stream().filter(rule -> rule.id().equals(wanted)).toList();
+        if (picked.isEmpty()) {
             err.println(Messages.f("没有这条规则：%s。看全部：llm-lint --list-rules",
                     "No such rule: %s. See all: llm-lint --list-rules", id));
             return 2;
         }
+        if ("markdown".equalsIgnoreCase(format)) {
+            out.print(ExplainReport.markdown(picked, config));
+        } else {
+            for (Rule rule : picked) {
+                explainText(rule, config, out);
+            }
+        }
+        out.flush();
+        return 0;
+    }
+
+    private void explainText(Rule rule, Config config, PrintWriter out) {
         out.println(rule.id() + "  " + rule.title());
         out.println();
-        boolean zh = Messages.lang() == Lang.ZH;
         out.println(Messages.t("级别      ", "Level     ") + levelText(config, rule));
         out.println(Messages.t("框架      ", "Framework ") + framework(rule));
         out.println(Messages.t("文档      ", "Docs      ") + rule.docUrl());
+        String pathOverrides = ExplainReport.overridesList(rule, config);
+        if (!pathOverrides.isEmpty()) {
+            out.println(Messages.t("路径覆盖  ", "Overrides ") + pathOverrides);
+        }
         if (!rule.why().isEmpty()) {
             out.println();
             out.println(rule.why());
@@ -820,7 +948,6 @@ public final class Main implements Callable<Integer> {
                 "To mute it in one place, put `// llm-lint:ignore %s` on that line or the line above.", rule.id()));
         out.println(Messages.f("整条关掉：`--disable %s`，或在 .llm-lint.yml 里写 `%s: off`。",
                 "To turn the rule off entirely: `--disable %s`, or `%s: off` in .llm-lint.yml.", rule.id(), rule.id()));
-        return 0;
     }
 
     /** 配置改过就说明改成了什么，没改就还是规则自己的级别。 */
